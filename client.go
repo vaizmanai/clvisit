@@ -25,17 +25,19 @@ func mainClient(){
 		logAdd(MESS_INFO, "mainClient пробует подключиться к " + options.MainServerAdr)
 
 		if len(options.Proxy) > 0 {
-			uri, err := url.Parse(options.Proxy)
+
+			proxy.RegisterDialerType("http", newHTTPProxy)
+			httpProxyURI, err := url.Parse("http://" + options.Proxy)
 			if err != nil {
-				logAdd(MESS_ERROR, "mainClient не смог использовать proxy-строку " + fmt.Sprint(err))
+				logAdd(MESS_ERROR, "mainClient не смог использовать proxy-строку: " + fmt.Sprint(err))
 			}
 
-			dialer, err := proxy.FromURL(uri, &net.Dialer {
+			dialer, err := proxy.FromURL(httpProxyURI, &net.Dialer {
 					Timeout: 30 * time.Second,
 					KeepAlive: 30 * time.Second,
 				})
 			if err != nil {
-				logAdd(MESS_ERROR, "mainClient не смог подключиться к proxy " + fmt.Sprint(err))
+				logAdd(MESS_ERROR, "mainClient не смог подключиться к proxy: " + fmt.Sprint(err))
 				time.Sleep(time.Second * 1)
 				continue
 			}
@@ -586,12 +588,14 @@ func conclient(adr string, code string, peer1 *pConn, peer2 *pConn, id string){
 
 	logAdd(MESS_INFO, id + " запустили клиента " + adr)
 	if len(options.Proxy) > 0 {
-		uri, err := url.Parse(options.Proxy)
+
+		proxy.RegisterDialerType("http", newHTTPProxy)
+		httpProxyURI, err := url.Parse("http://" + options.Proxy)
 		if err != nil {
-			logAdd(MESS_ERROR, "mainClient не смог использовать proxy-строку " + fmt.Sprint(err))
+			logAdd(MESS_ERROR, "mainClient не смог использовать proxy-строку: " + fmt.Sprint(err))
 		}
 
-		dialer, err := proxy.FromURL(uri, &net.Dialer {
+		dialer, err := proxy.FromURL(httpProxyURI, &net.Dialer {
 			Timeout: 30 * time.Second,
 			KeepAlive: 30 * time.Second,
 		})

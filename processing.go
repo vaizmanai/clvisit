@@ -427,3 +427,22 @@ func processLocalOptionsUI(message Message, conn *net.Conn) {
 		saveOptions()
 	}
 }
+
+func processLocalProxy(message Message, conn *net.Conn) {
+	logAdd(MESS_INFO, "Пришел запрос на настройку прокси")
+
+	if len(message.Messages) == 2 {
+		options.Proxy = message.Messages[0] + ":" + message.Messages[1]
+		saveOptions()
+		if myClient.Conn != nil {
+			(*myClient.Conn).Close()
+		}
+	} else {
+		if strings.Contains(options.Proxy, ":") {
+			proxy := strings.Split(options.Proxy, ":")
+			sendMessageToSocket(conn, message.TMessage, proxy[0], proxy[1])
+		} else {
+			sendMessageToSocket(conn, message.TMessage, "", "")
+		}
+	}
+}

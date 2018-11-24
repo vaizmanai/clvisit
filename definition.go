@@ -8,7 +8,7 @@ import (
 )
 
 const(
-	REVISIT_VERSION = "0.96"
+	REVISIT_VERSION = "0.97"
 
 	DEFAULT_MAIN_SERVER_NAME = "server.rvisit.net"
 	DEFAULT_DATA_SERVER_NAME = "data.rvisit.net"
@@ -89,6 +89,7 @@ const(
 	TMESS_LOCAL_INFO_HIDE = 45		 //
 	TMESS_LOCAL_CONT_REVERSE = 46 	 //
 	TMESS_LOCAL_OPTIONS_UI = 47 	 //
+	TMESS_LOCAL_PROXY = 48			 //
 )
 
 var(
@@ -182,7 +183,8 @@ var(
 		{TMESS_LOCAL_MYINFO, processLocalMyInfo},
 		{TMESS_LOCAL_INFO_HIDE, nil},
 		{TMESS_LOCAL_CONT_REVERSE, processLocalContactReverse},
-		{TMESS_LOCAL_OPTIONS_UI, processLocalOptionsUI} }
+		{TMESS_LOCAL_OPTIONS_UI, processLocalOptionsUI},
+		{TMESS_LOCAL_PROXY, processLocalProxy} }
 
 	//список доступных vnc
 	arrayVnc = []VNC{}
