@@ -8,27 +8,31 @@ import (
 )
 
 const(
-	REVISIT_VERSION = "0.97"
+	REVISIT_VERSION = "0.98"
 
 	DEFAULT_MAIN_SERVER_NAME = "server.rvisit.net"
 	DEFAULT_DATA_SERVER_NAME = "data.rvisit.net"
 	DEFAULT_HTTP_SERVER_NAME = "web.rvisit.net"
 	DEFAULT_NUMBER_PASSWORD = false
 
-	//DEFAULT_MAIN_SERVER_NAME = "178.46.164.51"
-	//DEFAULT_DATA_SERVER_NAME = "178.46.164.51"
-	//DEFAULT_HTTP_SERVER_NAME = "178.46.164.51"
-	//DEFAULT_NUMBER_PASSWORD = true
-
 	WAIT_COUNT_RESTART_SRV = 10
 	WAIT_COUNT             = 15
 	WAIT_IDLE              = 500
 	WAIT_AFTER_CONNECT     = 250
 	WAIT_SEND_MESS         = 50
-	WAIT_HELPER_CYCLE      = 5
 	WAIT_PING              = 10
 	MAX_ENC_PASS           = 48
 	LENGTH_PASS            = 6
+	PROXY_TIMEOUT		   = 30
+
+	STATIC_MESSAGE_EMPTY			= 0
+	STATIC_MESSAGE_NETWORK_ERROR 	= 1
+	STATIC_MESSAGE_PROXY_ERROR 		= 2
+	STATIC_MESSAGE_AUTH_ERROR 		= 3
+	STATIC_MESSAGE_VNC_ERROR 		= 4
+	STATIC_MESSAGE_TIMEOUT_ERROR	= 5
+	STATIC_MESSAGE_ABSENT_ERROR		= 6
+	STATIC_MESSAGE_TYPE_ERROR		= 7
 
 	OPTIONS_FILE = "options.cfg"
 	VNCLIST_FILE = "vnc.list"
@@ -60,6 +64,8 @@ const(
 	TMESS_MANAGE = 17
 	TMESS_PING = 18
 	TMESS_CONTACT_REVERSE = 19
+	TMESS_SERVERS = 20
+	TMESS_STANDART_ALERT = 21
 
 	TMESS_LOCAL_TEST = 20 			 //
 	TMESS_LOCAL_INFO = 21 			 //идентификатор и пароль, версию и т.п.
@@ -90,18 +96,23 @@ const(
 	TMESS_LOCAL_CONT_REVERSE = 46 	 //
 	TMESS_LOCAL_OPTIONS_UI = 47 	 //
 	TMESS_LOCAL_PROXY = 48			 //
+	TMESS_LOCAL_STANDART_ALERT = 49
 )
 
 var(
 	//наша домашяя папка
 	parentPath string
 
-	//
+	//считаем сколько у нас всего соединений
 	connections Connections
 
+	//todo это ограниечние мешает нам ожидать подключение к нескольким клиентам, только в порядке очереди
 	//ссылки на сокеты для локального сервера, который ждет локальный vnc viewer
 	peerBuff1 *pConn
 	peerBuff2 *pConn
+
+	//ui который запросил трансляцию
+	uiClient *net.Conn
 
 	//файл для хранения лога
 	logFile *os.File
@@ -132,6 +143,17 @@ var(
 		"DETAIL",
 		"FULL" }
 
+	//текстовая расшифровка статических сообщений
+	messStaticText = []string{
+		"пустое сообщение",
+		"ошибка сети",
+		"ошибка прокси",
+		"ошибка авторизации",
+		"ошибка VNC",
+		"ошибка времени ожидания",
+		"отсутствует пир",
+		"не правильный тип подключения" }
+
 	//функции для обработки сообщений
 	processing = []ProcessingMessage{
 		{TMESS_DEAUTH, processDeauth},
@@ -154,7 +176,11 @@ var(
 		{TMESS_MANAGE, processManage},
 		{TMESS_PING, processPing},
 		{TMESS_CONTACT_REVERSE, nil},
+		{TMESS_SERVERS, processServers}, 		    	//20
+		{TMESS_STANDART_ALERT, processStandartAlert} }
 
+	//функции для обработки локальных сообщений
+	localProcessing = []ProcessingMessage{
 		20:
 		{TMESS_LOCAL_TEST, processLocalTest}, 			//20
 		{TMESS_LOCAL_INFO, processLocalInfo},
@@ -184,7 +210,8 @@ var(
 		{TMESS_LOCAL_INFO_HIDE, nil},
 		{TMESS_LOCAL_CONT_REVERSE, processLocalContactReverse},
 		{TMESS_LOCAL_OPTIONS_UI, processLocalOptionsUI},
-		{TMESS_LOCAL_PROXY, processLocalProxy} }
+		{TMESS_LOCAL_PROXY, processLocalProxy},
+		{TMESS_LOCAL_STANDART_ALERT, nil} }
 
 	//список доступных vnc
 	arrayVnc = []VNC{}
@@ -200,6 +227,9 @@ var(
 
 	//
 	flagPassword = false
+
+	//список доступных агентов
+	agents []Agent
 )
 
 //структура для хранения конфигурируемых данных
@@ -346,4 +376,9 @@ type Contact struct {
 
 	Inner   *Contact
 	Next    *Contact
+}
+
+type Agent struct {
+	Metric	int
+	Address string
 }

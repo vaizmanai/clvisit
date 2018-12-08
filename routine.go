@@ -1,25 +1,26 @@
 package main
 
 import (
-	"fmt"
-	"net"
-	"time"
-	"strings"
-	"bytes"
-	"math/rand"
-	"encoding/json"
-	"crypto/sha256"
-	"os"
-	"net/http"
-	"io"
 	"archive/zip"
-	"path/filepath"
-	"os/exec"
-	"github.com/mitchellh/go-ps"
-	"io/ioutil"
-	"syscall"
-	"runtime"
+	"bytes"
+	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"github.com/mitchellh/go-ps"
+	"github.com/tatsushid/go-fastping"
+	"io"
+	"io/ioutil"
+	"math/rand"
+	"net"
+	"net/http"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
+	"strings"
+	"syscall"
+	"time"
 )
 
 
@@ -844,4 +845,47 @@ func getPass() string {
 	saveOptions()
 
 	return getPass()
+}
+
+func sortAgents() {
+	for i := 0; i < len(agents); i++ {
+		for j := i; j < len(agents); j++ {
+			if agents[i].Metric > agents[j].Metric && agents[j].Metric != -1{
+				tmp := agents[i]
+				agents[i] = agents[j]
+				agents[j] = tmp
+			}
+		}
+	}
+	printAgentsMetric()
+}
+
+func updateAgentsMetric() {
+	for i := 0; i < len(agents); i++ {
+		agents[i].Metric = updateAgentMetric(agents[i].Address)
+	}
+	logAdd(MESS_INFO, "Обновили метрики агентов")
+}
+
+func updateAgentMetric(address string) int {
+	metric := -1
+	p := fastping.NewPinger()
+
+	ra, err := net.ResolveIPAddr("ip4:icmp", address)
+	if err != nil {
+		return metric
+	}
+
+	p.AddIPAddr(ra)
+	p.OnRecv = func(addr *net.IPAddr, rtt time.Duration) {
+		metric = int(rtt.Nanoseconds()/1000)
+	}
+	p.Run()
+	return metric
+}
+
+func printAgentsMetric() {
+	for i := 0; i < len(agents); i++ {
+		logAdd(MESS_DETAIL, "Метрика для " + fmt.Sprint(agents[i].Address, " - ", agents[i].Metric))
+	}
 }

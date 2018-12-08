@@ -65,7 +65,7 @@ func processNotification(message Message, conn *net.Conn) {
 
 func processConnect(message Message, conn *net.Conn) {
 	logAdd(MESS_INFO, "Пришел запрос на подключение")
-	if len(message.Messages) <= 5 {
+	if len(message.Messages) < 7 {
 		logAdd(MESS_ERROR, "Не правильное кол-во полей")
 	}
 
@@ -74,31 +74,37 @@ func processConnect(message Message, conn *net.Conn) {
 	code := message.Messages[2]
 	tconn := message.Messages[3]
 	ctype := message.Messages[4]
+	address := message.Messages[6]
+	if len(address) < 1 {
+		address = options.DataServerAdr
+	}
 
 	if getSHA256(getPass() + salt) != digest  && ctype == "server" {
 		logAdd(MESS_ERROR, "Не верный пароль")
-		sendMessage(TMESS_NOTIFICATION, message.Messages[5], "Не прошлил аутентификацию!")
-		sendMessage(TMESS_DISCONNECT, code)
+		sendMessage(TMESS_NOTIFICATION, message.Messages[5], "Не прошлил аутентификацию!") //todo убрать
+		sendMessage(TMESS_DISCONNECT, code, fmt.Sprint(STATIC_MESSAGE_AUTH_ERROR))
 		return
 	}
 
 	if flagReinstallVnc || options.ActiveVncId == -1 {
 		logAdd(MESS_ERROR, "Не готов VNC")
-		sendMessage(TMESS_NOTIFICATION, message.Messages[5], "Не готов VNC!")
-		sendMessage(TMESS_DISCONNECT, code)
+		sendMessage(TMESS_NOTIFICATION, message.Messages[5], "Не готов VNC!") //todo убрать
+		sendMessage(TMESS_DISCONNECT, code, fmt.Sprint(STATIC_MESSAGE_VNC_ERROR))
 		return
 	}
 
 	if tconn == "simple" {
 		logAdd(MESS_INFO, "Запускаем \"простой\" тип подключения")
 		if ctype == "server" {
-			go convisit(options.DataServerAdr + ":" + options.DataServerPort, options.LocalAdrVNC + ":" + arrayVnc[options.ActiveVncId].PortServerVNC, code, false, 1); //тот кто передает трансляцию
+			go convisit(address + ":" + options.DataServerPort, options.LocalAdrVNC + ":" + arrayVnc[options.ActiveVncId].PortServerVNC, code, false, 1); //тот кто передает трансляцию
 		} else {
-			go convisit(options.DataServerAdr + ":" + options.DataServerPort, options.LocalAdrVNC + ":" + options.PortClientVNC, code, false, 2); //тот кто получает трансляцию
+			go convisit(address + ":" + options.DataServerPort, options.LocalAdrVNC + ":" + options.PortClientVNC, code, false, 2); //тот кто получает трансляцию
+			sendMessageToSocket(uiClient, TMESS_LOCAL_EXEC, parentPath + VNC_FOLDER + string(os.PathSeparator) + arrayVnc[options.ActiveVncId].Name + "_" + arrayVnc[options.ActiveVncId].Version+string(os.PathSeparator) + strings.Replace(arrayVnc[options.ActiveVncId].CmdStartClient, "%adr", options.LocalAdrVNC + ":" + options.PortClientVNC, 1))
 		}
 	} else {
-		logAdd(MESS_INFO, "Не известный тип подключения")
-		sendMessage(TMESS_NOTIFICATION, message.Messages[5], "Не известный тип подключения!")
+		logAdd(MESS_INFO, "Неизвестный тип подключения")
+		sendMessage(TMESS_NOTIFICATION, message.Messages[5], "Неизвестный тип подключения!") //todo удалить
+		sendMessage(TMESS_DISCONNECT, code, fmt.Sprint(STATIC_MESSAGE_TYPE_ERROR))
 	}
 }
 
@@ -205,6 +211,54 @@ func processPing(message Message, conn *net.Conn) {
 	//logAdd(MESS_INFO, "Пришел пинг")
 }
 
+func processStandartAlert(message Message, conn *net.Conn) {
+	logAdd(MESS_INFO, "Пришло стандартное уведомление")
+
+	if len(message.Messages) > 0 {
+		i, err := strconv.Atoi(message.Messages[0])
+		if err == nil {
+			logAdd(MESS_INFO, "Текст уведомления: "+messStaticText[i])
+			sendMessageToSocket(uiClient, TMESS_LOCAL_STANDART_ALERT, message.Messages[0])
+		}
+	}
+}
+
+func processServers(message Message, conn *net.Conn) {
+	logAdd(MESS_INFO, "Пришла информации по агентам")
+
+	if len(message.Messages) == 2 {
+		fl := message.Messages[0]
+		if fl == "true" || fl == "false" {
+			if fl == "true" {
+				logAdd(MESS_INFO, "Агент "+ message.Messages[1] + " включился")
+				var agent Agent
+				agent.Address = message.Messages[1]
+				agent.Metric = updateAgentMetric(agent.Address)
+				agents = append(agents, agent)
+			} else {
+				logAdd(MESS_INFO, "Агент "+ message.Messages[1] + " выключился")
+				for i := 0; i < len(agents); i++ {
+					if agents[i].Address == message.Messages[1] {
+						agents[i] = agents[len(agents)-1]
+						agents = agents[:len(agents)-1]
+						i = 0
+					}
+				}
+			}
+		}
+	} else {
+		logAdd(MESS_INFO, "Новый список агентов, кол-во: " + fmt.Sprint(len(message.Messages)))
+		agents = make([]Agent, len(message.Messages))
+		for i := 0 ; i < len(message.Messages); i++ {
+			var agent Agent
+			agent.Address = message.Messages[i]
+			agent.Metric = -1
+			agents[i] = agent
+		}
+		updateAgentsMetric()
+	}
+	sortAgents()
+}
 
 
 func processLocalTest(message Message, conn *net.Conn) {
@@ -237,7 +291,12 @@ func processLocalInfo(message Message, conn *net.Conn) {
 func processLocalConnect(message Message, conn *net.Conn) {
 	logAdd(MESS_INFO, "Пришел локальный запрос на подключение")
 
-	sendMessage(TMESS_REQUEST, message.Messages[0], getSHA256(message.Messages[1] + myClient.Salt))
+	uiClient = conn
+	if len(agents) > 0 && agents[0].Metric != -1 {
+		sendMessage(TMESS_REQUEST, message.Messages[0], getSHA256(message.Messages[1] + myClient.Salt), "", agents[0].Address)
+	} else {
+		sendMessage(TMESS_REQUEST, message.Messages[0], getSHA256(message.Messages[1] + myClient.Salt))
+	}
 }
 
 func processLocalInfoClient(message Message, conn *net.Conn) {
@@ -326,6 +385,7 @@ func processLocalLogout(message Message, conn *net.Conn) {
 func processLocalConnectContact(message Message, conn *net.Conn) {
 	logAdd(MESS_INFO, "Пришел локальный запрос на подключение к контакту")
 
+	uiClient = conn
 	sendMessage(TMESS_CONNECT_CONTACT, message.Messages[0])
 }
 

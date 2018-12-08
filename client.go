@@ -33,8 +33,8 @@ func mainClient(){
 			}
 
 			dialer, err := proxy.FromURL(httpProxyURI, &net.Dialer {
-					Timeout: 30 * time.Second,
-					KeepAlive: 30 * time.Second,
+					Timeout: PROXY_TIMEOUT * time.Second,
+					KeepAlive: PROXY_TIMEOUT * time.Second,
 				})
 			if err != nil {
 				logAdd(MESS_ERROR, "mainClient не смог подключиться к proxy: " + fmt.Sprint(err))
@@ -49,7 +49,6 @@ func mainClient(){
 				continue
 			}
 			myClient.Conn = &conn
-			defer conn.Close()
 		} else {
 			conn, err := net.Dial("tcp", options.MainServerAdr + ":" + options.MainServerPort)
 			if err != nil {
@@ -58,7 +57,6 @@ func mainClient(){
 				continue
 			}
 			myClient.Conn = &conn
-			defer conn.Close()
 		}
 
 		//отправим свою версию
@@ -68,6 +66,8 @@ func mainClient(){
 		//отправим свой идентификатор
 		myClient.Serial = getMac()
 		sendMessage(TMESS_AUTH, myClient.Serial)
+
+		sendMessage(TMESS_SERVERS)
 
 		reader := bufio.NewReader(*myClient.Conn)
 
@@ -120,7 +120,7 @@ func mainClient(){
 		sendMessageToLocalCons(TMESS_LOCAL_LOGOUT)
 
 		logAdd(MESS_INFO, "mainClient остановился")
-
+		(*myClient.Conn).Close()
 		myClient.Conn = nil
 
 		time.Sleep(time.Second * 1)
@@ -209,9 +209,9 @@ func localHandler(conn *net.Conn) {
 		logAdd(MESS_DETAIL, id + " " + fmt.Sprint(message))
 
 		//обрабатываем полученное сообщение
-		if len(processing) > message.TMessage{
-			if processing[message.TMessage].Processing != nil{
-				processing[message.TMessage].Processing(message, conn)
+		if len(localProcessing) > message.TMessage{
+			if localProcessing[message.TMessage].Processing != nil{
+				localProcessing[message.TMessage].Processing(message, conn)
 			} else {
 				logAdd(MESS_INFO, id + " localServer нет обработчика для сообщения")
 				time.Sleep(time.Millisecond * WAIT_IDLE)
@@ -266,8 +266,6 @@ func localDataServer(){
 }
 
 func localDataHandler(conn *net.Conn){
-	hideInfo()
-
 	id := randomString(6)
 	logAdd(MESS_INFO, id + " localDataHandler получил соединение")
 
@@ -281,8 +279,6 @@ func localDataHandler(conn *net.Conn){
 	if peerBuff1 == nil || peerBuff2 == nil {
 		(*conn).Close()
 		logAdd(MESS_INFO, id + " не дождались peer")
-
-		showInfo()
 		return
 	}
 
@@ -304,8 +300,6 @@ func localDataHandler(conn *net.Conn){
 	if peer2.Pointer == nil {
 		(*conn).Close()
 		logAdd(MESS_INFO, id + " не дождались peer")
-
-		showInfo()
 		return
 	}
 
@@ -329,8 +323,6 @@ func localDataHandler(conn *net.Conn){
 
 	(*conn).Close()
 	logAdd(MESS_INFO, id + " подключение к локальному серверу завершило работу")
-
-	showInfo()
 }
 
 func hideInfo() {
@@ -338,7 +330,7 @@ func hideInfo() {
 	connections.count = connections.count + 1
 	connections.mutex.Unlock()
 
-	if connections.count == 1 {
+	if connections.count > 0 {
 		sendMessageToLocalCons(TMESS_LOCAL_INFO_HIDE, "1")
 	}
 }
@@ -548,7 +540,7 @@ func ping(){
 //пир2 в сторону vnc(server/viewer)
 func convisit(peerAdr1 string, peerAdr2 string, code string, upnp bool, mode int){
 
-	logAdd(MESS_INFO, "Запустили поток подключения потока трансляции")
+	logAdd(MESS_INFO, "Запустили поток подключения трансляции")
 
 	//режимы работы коннектора
 	//пир1 всегда в сторону сервера/клиента(если напрямую)
@@ -586,13 +578,15 @@ func conserver(adr string, code string, peer1 *pConn, peer2 *pConn, id string){
 
 func conclient(adr string, code string, peer1 *pConn, peer2 *pConn, id string){
 
-	logAdd(MESS_INFO, id + " запустили клиента " + adr)
-	if len(options.Proxy) > 0 {
+	logAdd(MESS_INFO, id + " запустили клиента " + code + " к " + adr)
+	if len(options.Proxy) > 0 && len(code) > 0 { //если прокси указан и это не локальное подключение
 
 		proxy.RegisterDialerType("http", newHTTPProxy)
 		httpProxyURI, err := url.Parse("http://" + options.Proxy)
 		if err != nil {
+			sendMessage(TMESS_DISCONNECT, code, fmt.Sprint(STATIC_MESSAGE_PROXY_ERROR))
 			logAdd(MESS_ERROR, "mainClient не смог использовать proxy-строку: " + fmt.Sprint(err))
+			return
 		}
 
 		dialer, err := proxy.FromURL(httpProxyURI, &net.Dialer {
@@ -601,12 +595,14 @@ func conclient(adr string, code string, peer1 *pConn, peer2 *pConn, id string){
 		})
 		if err != nil {
 			logAdd(MESS_ERROR,  id + " не смог подключиться к proxy " + fmt.Sprint(err))
+			sendMessage(TMESS_DISCONNECT, code, fmt.Sprint(STATIC_MESSAGE_PROXY_ERROR))
 			return
 		}
 
 		conn, err := dialer.Dial("tcp", adr)
 		if err != nil {
 			logAdd(MESS_ERROR,  id + " не смог подключиться: " + fmt.Sprint(err))
+			sendMessage(TMESS_DISCONNECT, code, fmt.Sprint(STATIC_MESSAGE_PROXY_ERROR))
 			return
 		}
 
@@ -616,6 +612,9 @@ func conclient(adr string, code string, peer1 *pConn, peer2 *pConn, id string){
 		conn, err := net.Dial("tcp", adr)
 		if err != nil {
 			logAdd(MESS_ERROR, id + " не удалось клиенту подключиться: " + fmt.Sprint(err))
+			if len(code) > 0 {
+				sendMessage(TMESS_DISCONNECT, code, fmt.Sprint(STATIC_MESSAGE_NETWORK_ERROR))
+			}
 			return
 		}
 
@@ -625,6 +624,8 @@ func conclient(adr string, code string, peer1 *pConn, peer2 *pConn, id string){
 
 	if len(code) > 0 {
 		(*peer1.Pointer).Write([]byte(code + "\n"))
+		hideInfo()
+		defer showInfo()
 	}
 
 	var cWait = 0
@@ -635,6 +636,9 @@ func conclient(adr string, code string, peer1 *pConn, peer2 *pConn, id string){
 	}
 	if peer2.Pointer == nil {
 		logAdd(MESS_ERROR, id + " превышено время ожидания")
+		if len(code) > 0 {
+			sendMessage(TMESS_DISCONNECT, code, fmt.Sprint(STATIC_MESSAGE_TIMEOUT_ERROR))
+		}
 		return
 	}
 
@@ -646,9 +650,7 @@ func conclient(adr string, code string, peer1 *pConn, peer2 *pConn, id string){
 
 	for {
 		n1, err1 := (*peer1.Pointer).Read(z)
-//fmt.Println(id, "client: ", z[:n1])
 		n2, err2 := (*peer2.Pointer).Write(z[:n1])
-//fmt.Println(id, "client: ", n2, err2)
 		if (err1 != nil && err1 != io.EOF) && err2 != nil || n1 == 0 || n2 == 0{
 			logAdd(MESS_INFO, id + " соединение клиента отвалилось")
 			(*peer2.Pointer).Close()
