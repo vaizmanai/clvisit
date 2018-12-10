@@ -8,7 +8,7 @@ import (
 )
 
 const(
-	REVISIT_VERSION = "0.98"
+	REVISIT_VERSION = "0.99"
 
 	DEFAULT_MAIN_SERVER_NAME = "server.rvisit.net"
 	DEFAULT_DATA_SERVER_NAME = "data.rvisit.net"
@@ -33,6 +33,10 @@ const(
 	STATIC_MESSAGE_TIMEOUT_ERROR	= 5
 	STATIC_MESSAGE_ABSENT_ERROR		= 6
 	STATIC_MESSAGE_TYPE_ERROR		= 7
+	STATIC_MESSAGE_AUTH_FAIL		= 8
+	STATIC_MESSAGE_REG_FAIL			= 9
+	STATIC_MESSAGE_REG_MAIL			= 10
+	STATIC_MESSAGE_REG_SUCCESSFUL   = 11
 
 	OPTIONS_FILE = "options.cfg"
 	VNCLIST_FILE = "vnc.list"
@@ -152,7 +156,11 @@ var(
 		"ошибка VNC",
 		"ошибка времени ожидания",
 		"отсутствует пир",
-		"не правильный тип подключения" }
+		"не правильный тип подключения",
+		"ошибка авторизации",
+		"учетная запись занята",
+		"не удалось отправить письмо",
+		"регистрация выполнена" }
 
 	//функции для обработки сообщений
 	processing = []ProcessingMessage{
