@@ -8,7 +8,7 @@ import (
 )
 
 const(
-	REVISIT_VERSION = "0.99"
+	REVISIT_VERSION = "1.00"
 
 	DEFAULT_MAIN_SERVER_NAME = "server.rvisit.net"
 	DEFAULT_DATA_SERVER_NAME = "data.rvisit.net"
@@ -185,7 +185,7 @@ var(
 		{TMESS_PING, processPing},
 		{TMESS_CONTACT_REVERSE, nil},
 		{TMESS_SERVERS, processServers}, 		    	//20
-		{TMESS_STANDART_ALERT, processStandartAlert} }
+		{TMESS_STANDART_ALERT, processStandardAlert} }
 
 	//функции для обработки локальных сообщений
 	localProcessing = []ProcessingMessage{

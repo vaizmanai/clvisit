@@ -94,7 +94,7 @@ func processConnect(message Message, conn *net.Conn) {
 	}
 
 	if tconn == "simple" {
-		logAdd(MESS_INFO, "Запускаем \"простой\" тип подключения")
+		logAdd(MESS_INFO, "Запускаем простой тип подключения")
 		if ctype == "server" {
 			go convisit(address + ":" + options.DataServerPort, options.LocalAdrVNC + ":" + arrayVnc[options.ActiveVncId].PortServerVNC, code, false, 1); //тот кто передает трансляцию
 		} else {
@@ -211,7 +211,7 @@ func processPing(message Message, conn *net.Conn) {
 	//logAdd(MESS_INFO, "Пришел пинг")
 }
 
-func processStandartAlert(message Message, conn *net.Conn) {
+func processStandardAlert(message Message, conn *net.Conn) {
 	logAdd(MESS_INFO, "Пришло стандартное уведомление")
 
 	if len(message.Messages) > 0 {
@@ -245,18 +245,20 @@ func processServers(message Message, conn *net.Conn) {
 					}
 				}
 			}
+			sortAgents()
+			return
 		}
-	} else {
-		logAdd(MESS_INFO, "Новый список агентов, кол-во: " + fmt.Sprint(len(message.Messages)))
-		agents = make([]Agent, len(message.Messages))
-		for i := 0 ; i < len(message.Messages); i++ {
-			var agent Agent
-			agent.Address = message.Messages[i]
-			agent.Metric = -1
-			agents[i] = agent
-		}
-		updateAgentsMetric()
 	}
+
+	logAdd(MESS_INFO, "Новый список агентов, кол-во: " + fmt.Sprint(len(message.Messages)))
+	agents = make([]Agent, len(message.Messages))
+	for i := 0 ; i < len(message.Messages); i++ {
+		var agent Agent
+		agent.Address = message.Messages[i]
+		agent.Metric = -1
+		agents[i] = agent
+	}
+	updateAgentsMetric()
 	sortAgents()
 }
 
@@ -290,6 +292,7 @@ func processLocalInfo(message Message, conn *net.Conn) {
 
 func processLocalConnect(message Message, conn *net.Conn) {
 	logAdd(MESS_INFO, "Пришел локальный запрос на подключение")
+	printAgentsMetric()
 
 	uiClient = conn
 	if len(agents) > 0 && agents[0].Metric != -1 {
@@ -386,7 +389,11 @@ func processLocalConnectContact(message Message, conn *net.Conn) {
 	logAdd(MESS_INFO, "Пришел локальный запрос на подключение к контакту")
 
 	uiClient = conn
-	sendMessage(TMESS_CONNECT_CONTACT, message.Messages[0])
+	if len(agents) > 0 && agents[0].Metric != -1 {
+		sendMessage(TMESS_CONNECT_CONTACT, message.Messages[0], agents[0].Address)
+	} else {
+		sendMessage(TMESS_CONNECT_CONTACT, message.Messages[0])
+	}
 }
 
 func processLocalListVNC(message Message, conn *net.Conn) {
