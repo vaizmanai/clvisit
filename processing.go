@@ -100,6 +100,7 @@ func processConnect(message Message, conn *net.Conn) {
 		} else {
 			go convisit(address + ":" + options.DataServerPort, options.LocalAdrVNC + ":" + options.PortClientVNC, code, false, 2); //тот кто получает трансляцию
 			sendMessageToSocket(uiClient, TMESS_LOCAL_EXEC, parentPath + VNC_FOLDER + string(os.PathSeparator) + arrayVnc[options.ActiveVncId].Name + "_" + arrayVnc[options.ActiveVncId].Version+string(os.PathSeparator) + strings.Replace(arrayVnc[options.ActiveVncId].CmdStartClient, "%adr", options.LocalAdrVNC + ":" + options.PortClientVNC, 1))
+			sendMessageToLocalCons(TMESS_LOCAL_STANDART_ALERT, fmt.Sprint(STATIC_MESSAGE_LOCAL_CONN))
 		}
 	} else {
 		logAdd(MESS_INFO, "Неизвестный тип подключения")
@@ -112,7 +113,9 @@ func processDisconnect(message Message, conn *net.Conn) {
 	logAdd(MESS_INFO, "Пришел запрос на отключение")
 	if len(message.Messages) <= 1 {
 		logAdd(MESS_ERROR, "Не правильное кол-во полей")
+		return
 	}
+	sendMessageToLocalCons(TMESS_LOCAL_STANDART_ALERT, fmt.Sprint(STATIC_MESSAGE_LOCAL_DISCONN))
 }
 
 func processContacts(message Message, conn *net.Conn) {
@@ -394,6 +397,8 @@ func processLocalConnectContact(message Message, conn *net.Conn) {
 	} else {
 		sendMessage(TMESS_CONNECT_CONTACT, message.Messages[0])
 	}
+
+	sendMessageToLocalCons(TMESS_LOCAL_STANDART_ALERT, fmt.Sprint(STATIC_MESSAGE_LOCAL_REQ))
 }
 
 func processLocalListVNC(message Message, conn *net.Conn) {

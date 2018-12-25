@@ -2,6 +2,7 @@ package main
 
 import (
 	"net"
+	"runtime/debug"
 	"time"
 	"strconv"
 	"encoding/json"
@@ -15,14 +16,27 @@ import (
 	"net/url"
 )
 
+func recoverMainClient(conn *net.Conn){
+	if recover() != nil {
+		logAdd(MESS_ERROR, "Поток mainClient поймал критическую ошибку")
+		debug.PrintStack()
+
+		if conn != nil {
+			(*conn).Close()
+		}
+	}
+}
 
 
 func mainClient(){
 
+	defer recoverMainClient(myClient.Conn)
+	
 	go ping()
 
 	for !flagReload {
 		logAdd(MESS_INFO, "mainClient пробует подключиться к " + options.MainServerAdr)
+		sendMessageToLocalCons(TMESS_LOCAL_INFO_HIDE, "1")
 
 		if len(options.Proxy) > 0 {
 
@@ -68,6 +82,7 @@ func mainClient(){
 		sendMessage(TMESS_AUTH, myClient.Serial)
 
 		sendMessage(TMESS_SERVERS)
+		sendMessageToLocalCons(TMESS_LOCAL_INFO_HIDE, "0")
 
 		reader := bufio.NewReader(*myClient.Conn)
 
@@ -639,9 +654,11 @@ func conclient(adr string, code string, peer1 *pConn, peer2 *pConn, id string){
 		if len(code) > 0 {
 			sendMessage(TMESS_DISCONNECT, code, fmt.Sprint(STATIC_MESSAGE_TIMEOUT_ERROR))
 		}
+		sendMessageToLocalCons(TMESS_LOCAL_STANDART_ALERT, fmt.Sprint(STATIC_MESSAGE_LOCAL_ERROR))
 		return
 	}
 
+	sendMessageToLocalCons(TMESS_LOCAL_STANDART_ALERT, fmt.Sprint(STATIC_MESSAGE_LOCAL_CONN))
 	logAdd(MESS_INFO, id + " peer существует для клиента")
 	time.Sleep(time.Millisecond * WAIT_AFTER_CONNECT)
 
@@ -659,5 +676,6 @@ func conclient(adr string, code string, peer1 *pConn, peer2 *pConn, id string){
 	}
 
 	logAdd(MESS_INFO, id + " клиент завершил работу")
+	sendMessageToLocalCons(TMESS_LOCAL_STANDART_ALERT, fmt.Sprint(STATIC_MESSAGE_LOCAL_DISCONN))
 }
 
