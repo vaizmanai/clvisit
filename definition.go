@@ -8,7 +8,7 @@ import (
 )
 
 const(
-	REVISIT_VERSION = "1.01"
+	REVISIT_VERSION = "1.02"
 
 	DEFAULT_MAIN_SERVER_NAME = "server.rvisit.net"
 	DEFAULT_DATA_SERVER_NAME = "data.rvisit.net"

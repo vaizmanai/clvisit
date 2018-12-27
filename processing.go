@@ -336,6 +336,7 @@ func processTerminate(message Message, conn *net.Conn) {
 func processLocalReg(message Message, conn *net.Conn) {
 	logAdd(MESS_INFO, "Пришел локальный запрос на регистрацию учетки")
 
+	uiClient = conn
 	sendMessage(TMESS_REG, message.Messages[0])
 }
 
@@ -347,6 +348,7 @@ func processLocalLogin(message Message, conn *net.Conn) {
 		return
 	}
 
+	uiClient = conn
 	if message.Messages[2] == "1" {
 		logAdd(MESS_INFO, "Сохраним данные для входа в профиль")
 		options.ProfileLogin = message.Messages[0]
