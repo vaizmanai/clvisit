@@ -1,13 +1,13 @@
 package main
 
 import (
-	"net/http"
-	"io/ioutil"
 	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"net"
+	"net/http"
 	"os"
 	"strings"
-	"net"
-	"fmt"
 )
 
 

@@ -1,14 +1,16 @@
 package main
 
 import (
-	"net"
 	"container/list"
+	"net"
 	"os"
 	"sync"
 )
 
+
+
 const(
-	REVISIT_VERSION = "1.02"
+	REVISIT_VERSION = "1.03"
 
 	DEFAULT_MAIN_SERVER_NAME = "server.rvisit.net"
 	DEFAULT_DATA_SERVER_NAME = "data.rvisit.net"
@@ -21,6 +23,7 @@ const(
 	WAIT_AFTER_CONNECT     = 250
 	WAIT_SEND_MESS         = 50
 	WAIT_PING              = 10
+	WAIT_REFRESH_AGENTS	   = 180
 	MAX_ENC_PASS           = 48
 	LENGTH_PASS            = 6
 	PROXY_TIMEOUT		   = 30
@@ -242,6 +245,9 @@ var(
 
 	//список доступных агентов
 	agents []Agent
+
+	//флаг для обновления агентов
+	chRefreshAgents chan bool
 )
 
 //структура для хранения конфигурируемых данных

@@ -1,14 +1,14 @@
 package main
 
 import (
-	"net"
-	"strings"
-	"os"
 	"encoding/json"
-	"net/url"
 	"fmt"
+	"net"
 	"net/http"
+	"net/url"
+	"os"
 	"strconv"
+	"strings"
 )
 
 
@@ -261,8 +261,12 @@ func processServers(message Message, conn *net.Conn) {
 		agent.Metric = -1
 		agents[i] = agent
 	}
-	updateAgentsMetric()
-	sortAgents()
+
+	if chRefreshAgents == nil {
+		go refreshAgents()
+	}else{
+		chRefreshAgents <- true
+	}
 }
 
 

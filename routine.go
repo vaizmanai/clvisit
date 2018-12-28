@@ -24,6 +24,7 @@ import (
 )
 
 
+
 func getMac() string {
 	int, err := net.Interfaces()
 	if err == nil {
@@ -104,14 +105,6 @@ func sendMessageToLocalCons(TMessage int, Messages ...string){
 func sendMessage(TMessage int, Messages ...string) bool{
 	return sendMessageToSocket(myClient.Conn, TMessage, Messages...)
 }
-
-//func sendMessageToSocket(conn *net.Conn, TMessage int, Messages ...string) bool{
-//	return sendMessageRaw(conn, TMessage, Messages)
-//}
-
-//func sendMessageToLocalConns(TMessage int, Messages ...string){
-//	sendMessageToLocalConnsRaw(TMessage, Messages...)
-//}
 
 func randomNumber(l int) string {
 	var result bytes.Buffer
@@ -888,4 +881,22 @@ func printAgentsMetric() {
 	for i := 0; i < len(agents); i++ {
 		logAdd(MESS_DETAIL, "Метрика для " + fmt.Sprint(agents[i].Address, " - ", agents[i].Metric))
 	}
+}
+
+func refreshAgents(){
+
+	if chRefreshAgents == nil {
+		chRefreshAgents = make(chan bool)
+	}
+
+	for {
+		select {
+			case <- time.After(time.Duration(WAIT_REFRESH_AGENTS) * time.Second):
+			case <- chRefreshAgents:
+		}
+
+		updateAgentsMetric()
+		sortAgents()
+	}
+
 }
