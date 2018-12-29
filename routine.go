@@ -890,13 +890,14 @@ func refreshAgents(){
 	}
 
 	for {
+
+		updateAgentsMetric()
+		sortAgents()
+
 		select {
 			case <- time.After(time.Duration(WAIT_REFRESH_AGENTS) * time.Second):
 			case <- chRefreshAgents:
 		}
-
-		updateAgentsMetric()
-		sortAgents()
 	}
 
 }
