@@ -23,12 +23,13 @@ func processDeauth(message Message, conn *net.Conn) {
 
 func processAuth(message Message, conn *net.Conn) {
 	logAdd(MESS_INFO, "Пришел ответ на авторизацию")
-	if len(message.Messages) != 2 {
+	if len(message.Messages) != 3 {
 		logAdd(MESS_ERROR, "Не правильное кол-во полей")
 	}
 
 	myClient.Pid = message.Messages[0]
 	myClient.Salt = message.Messages[1]
+	myClient.Token = message.Messages[2]
 
 	if len(options.Pass) == 0 {
 		logAdd(MESS_INFO, "Сгенерировали новый пароль")
@@ -45,7 +46,7 @@ func processAuth(message Message, conn *net.Conn) {
 	sendMessageToLocalCons(TMESS_LOCAL_INFO, myClient.Pid, getPass(), myClient.Version,
 			options.HttpServerClientType + "://" + options.HttpServerClientAdr + ":" + options.HttpServerClientPort,
 			options.HttpServerType + "://" + options.HttpServerAdr + ":" + options.HttpServerPort,
-			options.ProfileLogin, options.ProfilePass)
+			options.ProfileLogin, options.ProfilePass, myClient.Token)
 }
 
 func processLogin(message Message, conn *net.Conn) {
