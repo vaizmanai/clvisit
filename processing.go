@@ -11,8 +11,6 @@ import (
 	"strings"
 )
 
-
-
 func processDeauth(message Message, conn *net.Conn) {
 	logAdd(MESS_INFO, "Пришел отказ на авторизацию")
 
@@ -23,14 +21,16 @@ func processDeauth(message Message, conn *net.Conn) {
 
 func processAuth(message Message, conn *net.Conn) {
 	logAdd(MESS_INFO, "Пришел ответ на авторизацию")
-	if len(message.Messages) < 3 {
+	if len(message.Messages) != 3 {
 		logAdd(MESS_ERROR, "Не правильное кол-во полей")
 		return
 	}
 
 	myClient.Pid = message.Messages[0]
 	myClient.Salt = message.Messages[1]
-	myClient.Token = message.Messages[2]
+	if len(message.Messages) > 2 {
+		myClient.Token = message.Messages[2]
+	}
 
 	if len(options.Pass) == 0 {
 		logAdd(MESS_INFO, "Сгенерировали новый пароль")
@@ -45,9 +45,9 @@ func processAuth(message Message, conn *net.Conn) {
 	}
 
 	sendMessageToLocalCons(TMESS_LOCAL_INFO, myClient.Pid, getPass(), myClient.Version,
-			options.HttpServerClientType + "://" + options.HttpServerClientAdr + ":" + options.HttpServerClientPort,
-			options.HttpServerType + "://" + options.HttpServerAdr + ":" + options.HttpServerPort,
-			options.ProfileLogin, options.ProfilePass, myClient.Token)
+		options.HttpServerClientType+"://"+options.HttpServerClientAdr+":"+options.HttpServerClientPort,
+		options.HttpServerType+"://"+options.HttpServerAdr+":"+options.HttpServerPort,
+		options.ProfileLogin, options.ProfilePass, myClient.Token)
 }
 
 func processLogin(message Message, conn *net.Conn) {
@@ -81,7 +81,7 @@ func processConnect(message Message, conn *net.Conn) {
 		address = options.DataServerAdr
 	}
 
-	if getSHA256(getPass() + salt) != digest  && ctype == "server" {
+	if getSHA256(getPass()+salt) != digest && ctype == "server" {
 		logAdd(MESS_ERROR, "Не верный пароль")
 		sendMessage(TMESS_NOTIFICATION, message.Messages[5], "Не прошлил аутентификацию!") //todo убрать
 		sendMessage(TMESS_DISCONNECT, code, fmt.Sprint(STATIC_MESSAGE_AUTH_ERROR))
@@ -98,10 +98,10 @@ func processConnect(message Message, conn *net.Conn) {
 	if tconn == "simple" {
 		logAdd(MESS_INFO, "Запускаем простой тип подключения")
 		if ctype == "server" {
-			go convisit(address + ":" + options.DataServerPort, options.LocalAdrVNC + ":" + arrayVnc[options.ActiveVncId].PortServerVNC, code, false, 1); //тот кто передает трансляцию
+			go convisit(address+":"+options.DataServerPort, options.LocalAdrVNC+":"+arrayVnc[options.ActiveVncId].PortServerVNC, code, false, 1); //тот кто передает трансляцию
 		} else {
-			go convisit(address + ":" + options.DataServerPort, options.LocalAdrVNC + ":" + options.PortClientVNC, code, false, 2); //тот кто получает трансляцию
-			sendMessageToSocket(uiClient, TMESS_LOCAL_EXEC, parentPath + VNC_FOLDER + string(os.PathSeparator) + arrayVnc[options.ActiveVncId].Name + "_" + arrayVnc[options.ActiveVncId].Version+string(os.PathSeparator) + strings.Replace(arrayVnc[options.ActiveVncId].CmdStartClient, "%adr", options.LocalAdrVNC + ":" + options.PortClientVNC, 1))
+			go convisit(address+":"+options.DataServerPort, options.LocalAdrVNC+":"+options.PortClientVNC, code, false, 2); //тот кто получает трансляцию
+			sendMessageToSocket(uiClient, TMESS_LOCAL_EXEC, parentPath+VNC_FOLDER+string(os.PathSeparator)+arrayVnc[options.ActiveVncId].Name+"_"+arrayVnc[options.ActiveVncId].Version+string(os.PathSeparator)+strings.Replace(arrayVnc[options.ActiveVncId].CmdStartClient, "%adr", options.LocalAdrVNC+":"+options.PortClientVNC, 1))
 			sendMessageToLocalCons(TMESS_LOCAL_STANDART_ALERT, fmt.Sprint(STATIC_MESSAGE_LOCAL_CONN))
 		}
 	} else {
@@ -133,7 +133,7 @@ func processContacts(message Message, conn *net.Conn) {
 				if err == nil {
 					sendMessageToLocalCons(TMESS_LOCAL_CONTACTS, url.PathEscape(string(b)))
 				}
-			}else{
+			} else {
 				fmt.Println(err)
 			}
 		}
@@ -155,15 +155,14 @@ func processStatus(message Message, conn *net.Conn) {
 func processInfoContact(message Message, conn *net.Conn) {
 	logAdd(MESS_INFO, "Пришел запрос на информацию")
 
-	if getSHA256(getPass() + message.Messages[2]) == message.Messages[1] {
+	if getSHA256(getPass()+message.Messages[2]) == message.Messages[1] {
 		//todo добавить много всякой инфы
 		hostname, _ := os.Hostname()
 
 		//uptime := gosigar.Uptime{}
 		//uptime.Get()
 
-
-		sendMessage(TMESS_INFO_ANSWER, message.Messages[0], fmt.Sprint(options.ActiveVncId), hostname, GetInfoOS(), REVISIT_VERSION )
+		sendMessage(TMESS_INFO_ANSWER, message.Messages[0], fmt.Sprint(options.ActiveVncId), hostname, GetInfoOS(), REVISIT_VERSION)
 		return
 	}
 
@@ -184,7 +183,7 @@ func processManage(message Message, conn *net.Conn) {
 	//Message[2] salt
 	//Message[3] act
 
-	if getSHA256(getPass() + message.Messages[2]) == message.Messages[1] {
+	if getSHA256(getPass()+message.Messages[2]) == message.Messages[1] {
 
 		if message.Messages[3] == "revnc" {
 			i, err := strconv.Atoi(message.Messages[4])
@@ -235,13 +234,13 @@ func processServers(message Message, conn *net.Conn) {
 		fl := message.Messages[0]
 		if fl == "true" || fl == "false" {
 			if fl == "true" {
-				logAdd(MESS_INFO, "Агент "+ message.Messages[1] + " включился")
+				logAdd(MESS_INFO, "Агент "+message.Messages[1]+" включился")
 				var agent Agent
 				agent.Address = message.Messages[1]
 				agent.Metric = updateAgentMetric(agent.Address)
 				agents = append(agents, agent)
 			} else {
-				logAdd(MESS_INFO, "Агент "+ message.Messages[1] + " выключился")
+				logAdd(MESS_INFO, "Агент "+message.Messages[1]+" выключился")
 				for i := 0; i < len(agents); i++ {
 					if agents[i].Address == message.Messages[1] {
 						agents[i] = agents[len(agents)-1]
@@ -255,9 +254,9 @@ func processServers(message Message, conn *net.Conn) {
 		}
 	}
 
-	logAdd(MESS_INFO, "Новый список агентов, кол-во: " + fmt.Sprint(len(message.Messages)))
+	logAdd(MESS_INFO, "Новый список агентов, кол-во: "+fmt.Sprint(len(message.Messages)))
 	agents = make([]Agent, len(message.Messages))
-	for i := 0 ; i < len(message.Messages); i++ {
+	for i := 0; i < len(message.Messages); i++ {
 		var agent Agent
 		agent.Address = message.Messages[i]
 		agent.Metric = -1
@@ -266,11 +265,10 @@ func processServers(message Message, conn *net.Conn) {
 
 	if chRefreshAgents == nil {
 		go refreshAgents()
-	}else{
+	} else {
 		chRefreshAgents <- true
 	}
 }
-
 
 func processLocalTest(message Message, conn *net.Conn) {
 	logAdd(MESS_INFO, "Пришел локальный тест")
@@ -283,9 +281,9 @@ func processLocalInfo(message Message, conn *net.Conn) {
 
 	if connections.count > 0 {
 		sendMessageToSocket(conn, message.TMessage, "XX:XX:XX:XX", "*****", myClient.Version,
-			options.HttpServerClientType + "://" + options.HttpServerClientAdr + ":" + options.HttpServerClientPort,
-			options.HttpServerType + "://" + options.HttpServerAdr + ":" + options.HttpServerPort,
-			options.ProfileLogin, options.ProfilePass)
+			options.HttpServerClientType+"://"+options.HttpServerClientAdr+":"+options.HttpServerClientPort,
+			options.HttpServerType+"://"+options.HttpServerAdr+":"+options.HttpServerPort,
+			options.ProfileLogin, options.ProfilePass, myClient.Token)
 	} else {
 		if len(message.Messages) > 0 {
 			options.Pass = encXOR(message.Messages[0], myClient.Pid)
@@ -293,9 +291,9 @@ func processLocalInfo(message Message, conn *net.Conn) {
 		}
 
 		sendMessageToSocket(conn, message.TMessage, myClient.Pid, getPass(), myClient.Version,
-			options.HttpServerClientType + "://" + options.HttpServerClientAdr + ":" + options.HttpServerClientPort,
-			options.HttpServerType + "://" + options.HttpServerAdr + ":" + options.HttpServerPort,
-			options.ProfileLogin, options.ProfilePass)
+			options.HttpServerClientType+"://"+options.HttpServerClientAdr+":"+options.HttpServerClientPort,
+			options.HttpServerType+"://"+options.HttpServerAdr+":"+options.HttpServerPort,
+			options.ProfileLogin, options.ProfilePass, myClient.Token)
 	}
 }
 
@@ -305,9 +303,9 @@ func processLocalConnect(message Message, conn *net.Conn) {
 
 	uiClient = conn
 	if len(agents) > 0 && agents[0].Metric != -1 {
-		sendMessage(TMESS_REQUEST, message.Messages[0], getSHA256(message.Messages[1] + myClient.Salt), "", agents[0].Address)
+		sendMessage(TMESS_REQUEST, message.Messages[0], getSHA256(message.Messages[1]+myClient.Salt), "", agents[0].Address)
 	} else {
-		sendMessage(TMESS_REQUEST, message.Messages[0], getSHA256(message.Messages[1] + myClient.Salt))
+		sendMessage(TMESS_REQUEST, message.Messages[0], getSHA256(message.Messages[1]+myClient.Salt))
 	}
 }
 
@@ -317,12 +315,12 @@ func processLocalInfoClient(message Message, conn *net.Conn) {
 	if options.ActiveVncId != -1 {
 		if checkForAdmin() {
 			sendMessageToSocket(conn, message.TMessage,
-				parentPath + VNC_FOLDER + string(os.PathSeparator) + arrayVnc[options.ActiveVncId].Name + "_" + arrayVnc[options.ActiveVncId].Version + string(os.PathSeparator) + strings.Replace(arrayVnc[options.ActiveVncId].CmdStartClient, "%adr", options.LocalAdrVNC  + ":" + options.PortClientVNC, 1),
-				parentPath + VNC_FOLDER + string(os.PathSeparator) + arrayVnc[options.ActiveVncId].Name + "_" + arrayVnc[options.ActiveVncId].Version + string(os.PathSeparator) + arrayVnc[options.ActiveVncId].CmdManageServer )
+				parentPath+VNC_FOLDER+string(os.PathSeparator)+arrayVnc[options.ActiveVncId].Name+"_"+arrayVnc[options.ActiveVncId].Version+string(os.PathSeparator)+strings.Replace(arrayVnc[options.ActiveVncId].CmdStartClient, "%adr", options.LocalAdrVNC+":"+options.PortClientVNC, 1),
+				parentPath+VNC_FOLDER+string(os.PathSeparator)+arrayVnc[options.ActiveVncId].Name+"_"+arrayVnc[options.ActiveVncId].Version+string(os.PathSeparator)+arrayVnc[options.ActiveVncId].CmdManageServer)
 		} else {
 			sendMessageToSocket(conn, message.TMessage,
-				parentPath + VNC_FOLDER + string(os.PathSeparator) + arrayVnc[options.ActiveVncId].Name + "_" + arrayVnc[options.ActiveVncId].Version+string(os.PathSeparator) + strings.Replace(arrayVnc[options.ActiveVncId].CmdStartClient, "%adr", options.LocalAdrVNC + ":" + options.PortClientVNC, 1),
-				parentPath + VNC_FOLDER + string(os.PathSeparator) + arrayVnc[options.ActiveVncId].Name + "_" + arrayVnc[options.ActiveVncId].Version+string(os.PathSeparator) + arrayVnc[options.ActiveVncId].CmdManageServerUser)
+				parentPath+VNC_FOLDER+string(os.PathSeparator)+arrayVnc[options.ActiveVncId].Name+"_"+arrayVnc[options.ActiveVncId].Version+string(os.PathSeparator)+strings.Replace(arrayVnc[options.ActiveVncId].CmdStartClient, "%adr", options.LocalAdrVNC+":"+options.PortClientVNC, 1),
+				parentPath+VNC_FOLDER+string(os.PathSeparator)+arrayVnc[options.ActiveVncId].Name+"_"+arrayVnc[options.ActiveVncId].Version+string(os.PathSeparator)+arrayVnc[options.ActiveVncId].CmdManageServerUser)
 		}
 	}
 }
@@ -366,7 +364,7 @@ func processLocalLogin(message Message, conn *net.Conn) {
 		options.ProfilePass = ""
 		saveOptions()
 	}
-	sendMessage(TMESS_LOGIN, message.Messages[0], getSHA256(message.Messages[1] + myClient.Salt))
+	sendMessage(TMESS_LOGIN, message.Messages[0], getSHA256(message.Messages[1]+myClient.Salt))
 }
 
 func processLocalContact(message Message, conn *net.Conn) {
@@ -376,7 +374,7 @@ func processLocalContact(message Message, conn *net.Conn) {
 	if len(message.Messages[4]) > 0 {
 		digest = getSHA256(message.Messages[4] + myClient.Salt)
 	}
-	sendMessage(TMESS_CONTACT, message.Messages[0], message.Messages[1], message.Messages[2], message.Messages[3], digest, message.Messages[5] )
+	sendMessage(TMESS_CONTACT, message.Messages[0], message.Messages[1], message.Messages[2], message.Messages[3], digest, message.Messages[5])
 }
 
 func processLocalContacts(message Message, conn *net.Conn) {
@@ -414,23 +412,23 @@ func processLocalListVNC(message Message, conn *net.Conn) {
 
 	resp, err := http.Get(options.HttpServerType + "://" + options.HttpServerAdr + ":" + options.HttpServerPort + "/api?make=listvnc")
 	if err != nil {
-		logAdd(MESS_ERROR, "Не получилось получить с сервера VNC: " + fmt.Sprint(err))
+		logAdd(MESS_ERROR, "Не получилось получить с сервера VNC: "+fmt.Sprint(err))
 		return
 	}
 
 	var buff []byte
-	buff = make([]byte, options.SizeBuff* options.SizeBuff)
+	buff = make([]byte, options.SizeBuff*options.SizeBuff)
 	n, err := resp.Body.Read(buff)
 
 	var listVNC []VNC
 	err = json.Unmarshal(buff[:n], &listVNC)
 	if err != nil {
-		logAdd(MESS_ERROR, "Не получилось получить с сервера VNC: " + fmt.Sprint(err))
+		logAdd(MESS_ERROR, "Не получилось получить с сервера VNC: "+fmt.Sprint(err))
 		return
 	}
 
 	for _, x := range listVNC {
-		sendMessageToSocket(conn, TMESS_LOCAL_LISTVNC, x.Name + " " + x.Version, x.Link)
+		sendMessageToSocket(conn, TMESS_LOCAL_LISTVNC, x.Name+" "+x.Version, x.Link)
 	}
 
 }
@@ -487,14 +485,14 @@ func processLocalMyInfo(message Message, conn *net.Conn) {
 	logAdd(MESS_INFO, "Пришел локальный запрос на свою информацию")
 
 	hostname, _ := os.Hostname()
-	sendMessageToLocalCons(TMESS_LOCAL_INFO_ANSWER, "", fmt.Sprint(options.ActiveVncId), hostname, GetInfoOS(), REVISIT_VERSION )
+	sendMessageToLocalCons(TMESS_LOCAL_INFO_ANSWER, "", fmt.Sprint(options.ActiveVncId), hostname, GetInfoOS(), REVISIT_VERSION)
 }
 
 func processLocalContactReverse(message Message, conn *net.Conn) {
 	logAdd(MESS_INFO, "Пришел локальный запрос на добавление в чужой профиль")
 
 	hostname, _ := os.Hostname()
-	sendMessage(TMESS_CONTACT_REVERSE, message.Messages[0], getSHA256(message.Messages[1] + myClient.Salt), hostname)
+	sendMessage(TMESS_CONTACT_REVERSE, message.Messages[0], getSHA256(message.Messages[1]+myClient.Salt), hostname)
 }
 
 func processLocalOptionsUI(message Message, conn *net.Conn) {
