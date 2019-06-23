@@ -23,7 +23,6 @@ func processAuth(message Message, conn *net.Conn) {
 	logAdd(MESS_INFO, "Пришел ответ на авторизацию")
 	if len(message.Messages) != 3 {
 		logAdd(MESS_ERROR, "Не правильное кол-во полей")
-		return
 	}
 
 	myClient.Pid = message.Messages[0]

@@ -26,6 +26,7 @@ func main() {
 	clean := flag.Bool("clean-all", false, "clean all options and settings")
 	close := flag.Bool("close-all", false, "close all processes")
 	reload := flag.Bool("reload", false, "reload communicator and UI")
+	debug := flag.Bool("debug", false, "debug flag")
 	flag.Parse()
 
 	logAdd(MESS_INFO, "Запустился коммуникатор reVisit версии "+REVISIT_VERSION)
@@ -45,6 +46,9 @@ func main() {
 	if *password != "" {
 		options.Pass = *password
 		flagPassword = true
+	}
+	if *debug {
+		options.FDebug = true
 	}
 	if *clean {
 		logAdd(MESS_INFO, "Пробуем удалить reVisit")
