@@ -10,9 +10,9 @@ import (
 const (
 	REVISIT_VERSION = "1.05"
 
-	DEFAULT_MAIN_SERVER_NAME = "server.rvisit.net"
-	DEFAULT_DATA_SERVER_NAME = "data.rvisit.net"
-	DEFAULT_HTTP_SERVER_NAME = "web.rvisit.net"
+	DEFAULT_MAIN_SERVER_NAME = "ithelp31.ru"
+	DEFAULT_DATA_SERVER_NAME = "ithelp31.ru"
+	DEFAULT_HTTP_SERVER_NAME = "ithelp31.ru"
 	DEFAULT_NUMBER_PASSWORD  = false
 
 	WAIT_COUNT_RESTART_SRV = 10
