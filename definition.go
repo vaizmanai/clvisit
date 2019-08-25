@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	REVISIT_VERSION = "1.05"
+	REVISIT_VERSION = "1.06"
 
 	DEFAULT_MAIN_SERVER_NAME = "server.rvisit.net"
 	DEFAULT_DATA_SERVER_NAME = "data.rvisit.net"
@@ -227,7 +227,7 @@ var (
 		{TMESS_LOCAL_STANDART_ALERT, nil}}
 
 	//список доступных vnc
-	arrayVnc = []VNC{}
+	arrayVnc []VNC
 
 	//собственно помечаем занят уже у нас этот процесс или нет
 	flagReinstallVnc = false

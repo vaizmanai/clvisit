@@ -21,8 +21,9 @@ func processDeauth(message Message, conn *net.Conn) {
 
 func processAuth(message Message, conn *net.Conn) {
 	logAdd(MESS_INFO, "Пришел ответ на авторизацию")
-	if len(message.Messages) != 3 {
+	if len(message.Messages) < 2 {
 		logAdd(MESS_ERROR, "Не правильное кол-во полей")
+		return
 	}
 
 	myClient.Pid = message.Messages[0]
@@ -285,7 +286,17 @@ func processLocalInfo(message Message, conn *net.Conn) {
 			options.ProfileLogin, options.ProfilePass, myClient.Token)
 	} else {
 		if len(message.Messages) > 0 {
-			options.Pass = encXOR(message.Messages[0], myClient.Pid)
+			if message.Messages[0] == "random" {
+				logAdd(MESS_INFO, "Сгенерировали новый пароль")
+
+				if DEFAULT_NUMBER_PASSWORD {
+					options.Pass = encXOR(randomNumber(LENGTH_PASS), myClient.Pid)
+				} else {
+					options.Pass = encXOR(randomString(LENGTH_PASS), myClient.Pid)
+				}
+			} else {
+				options.Pass = encXOR(message.Messages[0], myClient.Pid)
+			}
 			saveOptions()
 		}
 
