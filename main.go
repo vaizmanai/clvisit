@@ -24,7 +24,7 @@ func main() {
 	proxy := flag.String("proxy", "", "proxy server")
 	password := flag.String("password", "", "static password")
 	clean := flag.Bool("clean-all", false, "clean all options and settings")
-	close := flag.Bool("close-all", false, "close all processes")
+	closeFlag := flag.Bool("closeFlag-all", false, "closeFlag all processes")
 	reload := flag.Bool("reload", false, "reload communicator and UI")
 	debug := flag.Bool("debug", false, "debug flag")
 	flag.Parse()
@@ -58,12 +58,12 @@ func main() {
 		closeProcess(myName)
 		closeProcess("reVisit.exe")
 		closeProcess("revisit.exe")
-		os.RemoveAll(parentPath + "vnc")
-		os.Remove("options.cfg")
-		os.Remove("vnc.list")
+		_ = os.RemoveAll(parentPath + "vnc")
+		_ = os.Remove("options.cfg")
+		_ = os.Remove("vnc.list")
 		return
 	}
-	if *close {
+	if *closeFlag {
 		logAdd(MESS_INFO, "Пробуем закрыть все процессы reVisit")
 		loadListVNC()
 		closeAllVNC()

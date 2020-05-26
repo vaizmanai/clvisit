@@ -13,12 +13,38 @@ import (
 	"runtime/debug"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
+const (
+	qLimit = 6
+)
 
+var (
+	qCount = 0
+	mutex  sync.Mutex
+)
 
-func recoverMainClient(conn *net.Conn){
+func takeQ() bool {
+	for qCount > qLimit {
+		logAdd(MESS_ERROR, "queue is full")
+		time.Sleep(time.Millisecond * 100)
+		//return false
+	}
+	mutex.Lock()
+	defer mutex.Unlock()
+	qCount++
+	return true
+}
+
+func backQ() {
+	mutex.Lock()
+	defer mutex.Unlock()
+	qCount--
+}
+
+func recoverMainClient(conn *net.Conn) {
 	if recover() != nil {
 		logAdd(MESS_ERROR, "Поток mainClient поймал критическую ошибку")
 		debug.PrintStack()
@@ -29,15 +55,14 @@ func recoverMainClient(conn *net.Conn){
 	}
 }
 
-
-func mainClient(){
+func mainClient() {
 
 	defer recoverMainClient(myClient.Conn)
-	
+
 	go ping()
 
 	for !flagReload {
-		logAdd(MESS_INFO, "mainClient пробует подключиться к " + options.MainServerAdr)
+		logAdd(MESS_INFO, "mainClient пробует подключиться к "+options.MainServerAdr)
 		sendMessageToLocalCons(TMESS_LOCAL_INFO_HIDE, "1")
 
 		if len(options.Proxy) > 0 {
@@ -45,30 +70,30 @@ func mainClient(){
 			proxy.RegisterDialerType("http", newHTTPProxy)
 			httpProxyURI, err := url.Parse("http://" + options.Proxy)
 			if err != nil {
-				logAdd(MESS_ERROR, "mainClient не смог использовать proxy-строку: " + fmt.Sprint(err))
+				logAdd(MESS_ERROR, "mainClient не смог использовать proxy-строку: "+fmt.Sprint(err))
 			}
 
-			dialer, err := proxy.FromURL(httpProxyURI, &net.Dialer {
-					Timeout: PROXY_TIMEOUT * time.Second,
-					KeepAlive: PROXY_TIMEOUT * time.Second,
-				})
+			dialer, err := proxy.FromURL(httpProxyURI, &net.Dialer{
+				Timeout:   PROXY_TIMEOUT * time.Second,
+				KeepAlive: PROXY_TIMEOUT * time.Second,
+			})
 			if err != nil {
-				logAdd(MESS_ERROR, "mainClient не смог подключиться к proxy: " + fmt.Sprint(err))
+				logAdd(MESS_ERROR, "mainClient не смог подключиться к proxy: "+fmt.Sprint(err))
 				time.Sleep(time.Second * 1)
 				continue
 			}
 
-			conn, err := dialer.Dial("tcp", options.MainServerAdr + ":" + options.MainServerPort)
+			conn, err := dialer.Dial("tcp", options.MainServerAdr+":"+options.MainServerPort)
 			if err != nil {
-				logAdd(MESS_ERROR, "mainClient не смог подключиться: " + fmt.Sprint(err))
+				logAdd(MESS_ERROR, "mainClient не смог подключиться: "+fmt.Sprint(err))
 				time.Sleep(time.Second * 1)
 				continue
 			}
 			myClient.Conn = &conn
 		} else {
-			conn, err := net.Dial("tcp", options.MainServerAdr + ":" + options.MainServerPort)
+			conn, err := net.Dial("tcp", options.MainServerAdr+":"+options.MainServerPort)
 			if err != nil {
-				logAdd(MESS_ERROR, "mainClient не смог подключиться: " + fmt.Sprint(err))
+				logAdd(MESS_ERROR, "mainClient не смог подключиться: "+fmt.Sprint(err))
 				time.Sleep(time.Second * 1)
 				continue
 			}
@@ -92,17 +117,17 @@ func mainClient(){
 			buff, err := reader.ReadBytes('}')
 
 			if err != nil {
-				logAdd(MESS_ERROR, "mainClient ошибка чтения буфера: " + fmt.Sprint(err))
+				logAdd(MESS_ERROR, "mainClient ошибка чтения буфера: "+fmt.Sprint(err))
 				break
 			}
 
-			logAdd(MESS_DETAIL, fmt.Sprint("buff (" + strconv.Itoa(len(buff)) + "): " + string(buff)))
+			logAdd(MESS_DETAIL, fmt.Sprint("buff ("+strconv.Itoa(len(buff))+"): "+string(buff)))
 
 			//удаляем мусор
 			if buff[0] != '{' {
 				logAdd(MESS_INFO, "mainServer удаляем мусор")
 				if bytes.Index(buff, []byte("{")) >= 0 {
-					logAdd(MESS_DETAIL, fmt.Sprint("buff (" + strconv.Itoa(len(buff)) + "): " + string(buff)))
+					logAdd(MESS_DETAIL, fmt.Sprint("buff ("+strconv.Itoa(len(buff))+"): "+string(buff)))
 					buff = buff[bytes.Index(buff, []byte("{")):]
 				} else {
 					continue
@@ -112,7 +137,7 @@ func mainClient(){
 			var message Message
 			err = json.Unmarshal(buff, &message)
 			if err != nil {
-				logAdd(MESS_ERROR, "mainClient ошибка разбора json: " + fmt.Sprint(err))
+				logAdd(MESS_ERROR, "mainClient ошибка разбора json: "+fmt.Sprint(err))
 				time.Sleep(time.Millisecond * WAIT_IDLE)
 				continue
 			}
@@ -120,9 +145,14 @@ func mainClient(){
 			logAdd(MESS_DETAIL, fmt.Sprint(message))
 
 			//обрабатываем полученное сообщение
-			if len(processing) > message.TMessage{
-				if processing[message.TMessage].Processing != nil{
-					processing[message.TMessage].Processing(message, myClient.Conn)
+			if len(processing) > message.TMessage {
+				if processing[message.TMessage].Processing != nil {
+					if takeQ() {
+						go func() {
+							processing[message.TMessage].Processing(message, myClient.Conn)
+							backQ()
+						}()
+					}
 				} else {
 					logAdd(MESS_INFO, "mainClient нет обработчика для сообщения")
 					time.Sleep(time.Millisecond * WAIT_IDLE)
@@ -144,14 +174,14 @@ func mainClient(){
 	}
 }
 
-func localServer(){
+func localServer() {
 	count := 0
 	for count < WAIT_COUNT_RESTART_SRV && !flagReload {
 		logAdd(MESS_INFO, "localServer запустился")
 
-		ln, err := net.Listen("tcp", options.LocalServerAdr + ":" + options.LocalServerPort)
+		ln, err := net.Listen("tcp", options.LocalServerAdr+":"+options.LocalServerPort)
 		if err != nil {
-			logAdd(MESS_ERROR, "localServer не смог занять порт: " + fmt.Sprint(err))
+			logAdd(MESS_ERROR, "localServer не смог занять порт: "+fmt.Sprint(err))
 			os.Exit(1) //todo наверное оставим так
 			time.Sleep(time.Millisecond * WAIT_IDLE)
 			count++
@@ -163,7 +193,7 @@ func localServer(){
 		for {
 			conn, err := ln.Accept()
 			if err != nil {
-				logAdd(MESS_ERROR, "localServer не смог занять сокет: " + fmt.Sprint(err))
+				logAdd(MESS_ERROR, "localServer не смог занять сокет: "+fmt.Sprint(err))
 				break
 			}
 			go localHandler(&conn)
@@ -183,7 +213,7 @@ func localServer(){
 
 func localHandler(conn *net.Conn) {
 	id := randomString(6)
-	logAdd(MESS_INFO, id + " localServer получил соединение")
+	logAdd(MESS_INFO, id+" localServer получил соединение")
 
 	item := localConnections.PushBack(conn)
 
@@ -199,15 +229,15 @@ func localHandler(conn *net.Conn) {
 		buff, err := reader.ReadBytes('}')
 
 		if err != nil {
-			logAdd(MESS_ERROR, id + " localServer ошибка чтения буфера: " + fmt.Sprint(err))
+			logAdd(MESS_ERROR, id+" localServer ошибка чтения буфера: "+fmt.Sprint(err))
 			break
 		}
 
-		logAdd(MESS_DETAIL, id + fmt.Sprint(" buff (" + strconv.Itoa(len(buff)) + "): " + string(buff)))
+		logAdd(MESS_DETAIL, id+fmt.Sprint(" buff ("+strconv.Itoa(len(buff))+"): "+string(buff)))
 
 		//удаляем мусор
 		if buff[0] != '{' {
-			logAdd(MESS_INFO, id + " localServer удаляем мусор")
+			logAdd(MESS_INFO, id+" localServer удаляем мусор")
 			if bytes.Index(buff, []byte("{")) >= 0 {
 				buff = buff[bytes.Index(buff, []byte("{")):]
 			} else {
@@ -218,41 +248,46 @@ func localHandler(conn *net.Conn) {
 		var message Message
 		err = json.Unmarshal(buff, &message)
 		if err != nil {
-			logAdd(MESS_ERROR, id + " localServer ошибка разбора json: " + fmt.Sprint(err))
+			logAdd(MESS_ERROR, id+" localServer ошибка разбора json: "+fmt.Sprint(err))
 			time.Sleep(time.Millisecond * WAIT_IDLE)
 			continue
 		}
 
-		logAdd(MESS_DETAIL, id + " " + fmt.Sprint(message))
+		logAdd(MESS_DETAIL, id+" "+fmt.Sprint(message))
 
 		//обрабатываем полученное сообщение
-		if len(localProcessing) > message.TMessage{
-			if localProcessing[message.TMessage].Processing != nil{
-				localProcessing[message.TMessage].Processing(message, conn)
+		if len(localProcessing) > message.TMessage {
+			if localProcessing[message.TMessage].Processing != nil {
+				if takeQ() {
+					go func() {
+						localProcessing[message.TMessage].Processing(message, conn)
+						backQ()
+					}()
+				}
 			} else {
-				logAdd(MESS_INFO, id + " localServer нет обработчика для сообщения")
+				logAdd(MESS_INFO, fmt.Sprintf("%s localServer нет обработчика для сообщения", id))
 				time.Sleep(time.Millisecond * WAIT_IDLE)
 			}
 		} else {
-			logAdd(MESS_INFO, id + " localServer неизвестное сообщение")
+			logAdd(MESS_INFO, fmt.Sprintf("%s localServer неизвестное сообщение", id))
 			time.Sleep(time.Millisecond * WAIT_IDLE)
 		}
 
 	}
 
 	localConnections.Remove(item)
-	(*conn).Close()
-	logAdd(MESS_INFO, id + " localServer потерял соединение")
+	_ = (*conn).Close()
+	logAdd(MESS_INFO, id+" localServer потерял соединение")
 }
 
-func localDataServer(){
+func localDataServer() {
 	count := 0
 	for count < WAIT_COUNT_RESTART_SRV && !flagReload {
 		logAdd(MESS_INFO, "localDataServer запустился")
 
-		ln, err := net.Listen("tcp", options.LocalAdrVNC + ":" + options.PortClientVNC)
+		ln, err := net.Listen("tcp", options.LocalAdrVNC+":"+options.PortClientVNC)
 		if err != nil {
-			logAdd(MESS_ERROR, "localDataServer не смог занять порт: " + fmt.Sprint(err))
+			logAdd(MESS_ERROR, "localDataServer не смог занять порт: "+fmt.Sprint(err))
 			os.Exit(1) //todo наверное оставим так
 			time.Sleep(time.Millisecond * WAIT_IDLE)
 			count++
@@ -264,7 +299,7 @@ func localDataServer(){
 		for {
 			conn, err := ln.Accept()
 			if err != nil {
-				logAdd(MESS_ERROR, "localDataServer не смог занять сокет: " + fmt.Sprint(err))
+				logAdd(MESS_ERROR, "localDataServer не смог занять сокет: "+fmt.Sprint(err))
 				break
 			}
 			go localDataHandler(&conn)
@@ -282,20 +317,20 @@ func localDataServer(){
 	}
 }
 
-func localDataHandler(conn *net.Conn){
+func localDataHandler(conn *net.Conn) {
 	id := randomString(6)
-	logAdd(MESS_INFO, id + " localDataHandler получил соединение")
+	logAdd(MESS_INFO, id+" localDataHandler получил соединение")
 
 	var cWait = 0
 	for (peerBuff1 == nil || peerBuff2 == nil) && cWait < WAIT_COUNT {
-		logAdd(MESS_INFO, id + " ожидание peer для локального сервера...")
+		logAdd(MESS_INFO, id+" ожидание peer для локального сервера...")
 		time.Sleep(time.Millisecond * WAIT_IDLE)
 		cWait++
 	}
 
 	if peerBuff1 == nil || peerBuff2 == nil {
 		(*conn).Close()
-		logAdd(MESS_INFO, id + " не дождались peer")
+		logAdd(MESS_INFO, id+" не дождались peer")
 		return
 	}
 
@@ -309,18 +344,18 @@ func localDataHandler(conn *net.Conn){
 
 	cWait = 0
 	for peer2.Pointer == nil && cWait < WAIT_COUNT && !flagTerminated {
-		logAdd(MESS_INFO, id + " ожидание peer для локального сервера...")
+		logAdd(MESS_INFO, id+" ожидание peer для локального сервера...")
 		time.Sleep(time.Millisecond * WAIT_IDLE)
 		cWait++
 	}
 
 	if peer2.Pointer == nil {
 		(*conn).Close()
-		logAdd(MESS_INFO, id + " не дождались peer")
+		logAdd(MESS_INFO, id+" не дождались peer")
 		return
 	}
 
-	logAdd(MESS_INFO, id + " peer существует для локального сервера")
+	logAdd(MESS_INFO, id+" peer существует для локального сервера")
 	time.Sleep(time.Millisecond * WAIT_AFTER_CONNECT)
 
 	var z []byte
@@ -332,14 +367,14 @@ func localDataHandler(conn *net.Conn){
 		n2, err2 := (*peer2.Pointer).Write(z[:n1])
 		//fmt.Println(id, "server:", z[:n2], err2)
 		if (err1 != nil && err1 != io.EOF) && err2 != nil || n1 == 0 || n2 == 0 {
-			logAdd(MESS_INFO, id + " подключение к локальному серверу отвалилось: " + fmt.Sprint(n1, n2))
+			logAdd(MESS_INFO, id+" подключение к локальному серверу отвалилось: "+fmt.Sprint(n1, n2))
 			(*peer2.Pointer).Close()
 			break
 		}
 	}
 
 	(*conn).Close()
-	logAdd(MESS_INFO, id + " подключение к локальному серверу завершило работу")
+	logAdd(MESS_INFO, id+" подключение к локальному серверу завершило работу")
 }
 
 func hideInfo() {
@@ -362,15 +397,13 @@ func showInfo() {
 	}
 }
 
-
-
 func startVNC() {
-	if len(arrayVnc) == 0 || options.ActiveVncId == -1{
+	if len(arrayVnc) == 0 || options.ActiveVncId == -1 {
 		logAdd(MESS_INFO, "VNC серверы отсутствуют")
 		return
 	}
 
-	sendMessageToLocalCons(TMESS_LOCAL_INFO_CLIENT,  parentPath + VNC_FOLDER + string(os.PathSeparator) + arrayVnc[options.ActiveVncId].Name + "_" + arrayVnc[options.ActiveVncId].Version + string(os.PathSeparator) + strings.Replace(arrayVnc[options.ActiveVncId].CmdStartClient, "%adr", options.LocalAdrVNC  + ":" + options.PortClientVNC, 1))
+	sendMessageToLocalCons(TMESS_LOCAL_INFO_CLIENT, parentPath+VNC_FOLDER+string(os.PathSeparator)+arrayVnc[options.ActiveVncId].Name+"_"+arrayVnc[options.ActiveVncId].Version+string(os.PathSeparator)+strings.Replace(arrayVnc[options.ActiveVncId].CmdStartClient, "%adr", options.LocalAdrVNC+":"+options.PortClientVNC, 1))
 
 	logAdd(MESS_INFO, "Готовим VNC сервер для запуска")
 	if !checkForAdmin() {
@@ -394,7 +427,7 @@ func startVNC() {
 }
 
 func closeVNC() {
-	if len(arrayVnc) == 0 || options.ActiveVncId == -1{
+	if len(arrayVnc) == 0 || options.ActiveVncId == -1 {
 		logAdd(MESS_INFO, "VNC серверы отсутствуют")
 		return
 	}
@@ -542,7 +575,7 @@ func uninstallVNCserverUser() bool {
 	return true
 }
 
-func ping(){
+func ping() {
 	logAdd(MESS_DETAIL, "Запустили поток пинга")
 	for true {
 		time.Sleep(time.Second * WAIT_PING)
@@ -551,11 +584,9 @@ func ping(){
 	logAdd(MESS_DETAIL, "Остановили поток пинга")
 }
 
-
-
 //пир1 в сторону сервера/клиента(если напрямую)
 //пир2 в сторону vnc(server/viewer)
-func convisit(peerAdr1 string, peerAdr2 string, code string, upnp bool, mode int){
+func convisit(peerAdr1 string, peerAdr2 string, code string, upnp bool, mode int) {
 
 	logAdd(MESS_INFO, "Запустили поток подключения трансляции")
 
@@ -588,37 +619,37 @@ func convisit(peerAdr1 string, peerAdr2 string, code string, upnp bool, mode int
 
 }
 
-func conserver(adr string, code string, peer1 *pConn, peer2 *pConn, id string){
+func conserver(adr string, code string, peer1 *pConn, peer2 *pConn, id string) {
 	peerBuff1 = peer1
 	peerBuff2 = peer2
 }
 
-func conclient(adr string, code string, peer1 *pConn, peer2 *pConn, id string){
+func conclient(adr string, code string, peer1 *pConn, peer2 *pConn, id string) {
 
-	logAdd(MESS_INFO, id + " запустили клиента " + code + " к " + adr)
+	logAdd(MESS_INFO, id+" запустили клиента "+code+" к "+adr)
 	if len(options.Proxy) > 0 && len(code) > 0 { //если прокси указан и это не локальное подключение
 
 		proxy.RegisterDialerType("http", newHTTPProxy)
 		httpProxyURI, err := url.Parse("http://" + options.Proxy)
 		if err != nil {
 			sendMessage(TMESS_DISCONNECT, code, fmt.Sprint(STATIC_MESSAGE_PROXY_ERROR))
-			logAdd(MESS_ERROR, "mainClient не смог использовать proxy-строку: " + fmt.Sprint(err))
+			logAdd(MESS_ERROR, "mainClient не смог использовать proxy-строку: "+fmt.Sprint(err))
 			return
 		}
 
-		dialer, err := proxy.FromURL(httpProxyURI, &net.Dialer {
-			Timeout: 30 * time.Second,
+		dialer, err := proxy.FromURL(httpProxyURI, &net.Dialer{
+			Timeout:   30 * time.Second,
 			KeepAlive: 30 * time.Second,
 		})
 		if err != nil {
-			logAdd(MESS_ERROR,  id + " не смог подключиться к proxy " + fmt.Sprint(err))
+			logAdd(MESS_ERROR, id+" не смог подключиться к proxy "+fmt.Sprint(err))
 			sendMessage(TMESS_DISCONNECT, code, fmt.Sprint(STATIC_MESSAGE_PROXY_ERROR))
 			return
 		}
 
 		conn, err := dialer.Dial("tcp", adr)
 		if err != nil {
-			logAdd(MESS_ERROR,  id + " не смог подключиться: " + fmt.Sprint(err))
+			logAdd(MESS_ERROR, id+" не смог подключиться: "+fmt.Sprint(err))
 			sendMessage(TMESS_DISCONNECT, code, fmt.Sprint(STATIC_MESSAGE_PROXY_ERROR))
 			return
 		}
@@ -628,7 +659,7 @@ func conclient(adr string, code string, peer1 *pConn, peer2 *pConn, id string){
 	} else {
 		conn, err := net.Dial("tcp", adr)
 		if err != nil {
-			logAdd(MESS_ERROR, id + " не удалось клиенту подключиться: " + fmt.Sprint(err))
+			logAdd(MESS_ERROR, id+" не удалось клиенту подключиться: "+fmt.Sprint(err))
 			if len(code) > 0 {
 				sendMessage(TMESS_DISCONNECT, code, fmt.Sprint(STATIC_MESSAGE_NETWORK_ERROR))
 			}
@@ -647,12 +678,12 @@ func conclient(adr string, code string, peer1 *pConn, peer2 *pConn, id string){
 
 	var cWait = 0
 	for peer2.Pointer == nil && cWait < WAIT_COUNT {
-		logAdd(MESS_INFO, id + " ожидаем peer для клиента...")
+		logAdd(MESS_INFO, id+" ожидаем peer для клиента...")
 		time.Sleep(time.Millisecond * WAIT_IDLE)
 		cWait++
 	}
 	if peer2.Pointer == nil {
-		logAdd(MESS_ERROR, id + " превышено время ожидания")
+		logAdd(MESS_ERROR, id+" превышено время ожидания")
 		if len(code) > 0 {
 			sendMessage(TMESS_DISCONNECT, code, fmt.Sprint(STATIC_MESSAGE_TIMEOUT_ERROR))
 		}
@@ -661,7 +692,7 @@ func conclient(adr string, code string, peer1 *pConn, peer2 *pConn, id string){
 	}
 
 	sendMessageToLocalCons(TMESS_LOCAL_STANDART_ALERT, fmt.Sprint(STATIC_MESSAGE_LOCAL_CONN))
-	logAdd(MESS_INFO, id + " peer существует для клиента")
+	logAdd(MESS_INFO, id+" peer существует для клиента")
 	time.Sleep(time.Millisecond * WAIT_AFTER_CONNECT)
 
 	var z []byte
@@ -670,14 +701,13 @@ func conclient(adr string, code string, peer1 *pConn, peer2 *pConn, id string){
 	for {
 		n1, err1 := (*peer1.Pointer).Read(z)
 		n2, err2 := (*peer2.Pointer).Write(z[:n1])
-		if (err1 != nil && err1 != io.EOF) && err2 != nil || n1 == 0 || n2 == 0{
-			logAdd(MESS_INFO, id + " соединение клиента отвалилось")
+		if (err1 != nil && err1 != io.EOF) && err2 != nil || n1 == 0 || n2 == 0 {
+			logAdd(MESS_INFO, id+" соединение клиента отвалилось")
 			(*peer2.Pointer).Close()
 			break
 		}
 	}
 
-	logAdd(MESS_INFO, id + " клиент завершил работу")
+	logAdd(MESS_INFO, id+" клиент завершил работу")
 	sendMessageToLocalCons(TMESS_LOCAL_STANDART_ALERT, fmt.Sprint(STATIC_MESSAGE_LOCAL_DISCONN))
 }
-
