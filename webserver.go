@@ -73,7 +73,7 @@ func handleAPI(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleContacts(w http.ResponseWriter, r *http.Request) {
-	resp, err := http.Get(options.HttpServerType + "://" + options.HttpServerAdr + ":" + options.HttpServerPort + "/resource/client/contacts.html")
+	resp, err := httpClient.Get(options.HttpServerType + "://" + options.HttpServerAdr + ":" + options.HttpServerPort + "/resource/client/contacts.html")
 	if err == nil {
 		body, err := ioutil.ReadAll(resp.Body)
 		if err == nil {
@@ -94,7 +94,7 @@ func handleContacts(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleOptions(w http.ResponseWriter, r *http.Request) {
-	resp, err := http.Get(options.HttpServerType + "://" + options.HttpServerAdr + ":" + options.HttpServerPort + "/resource/client/options.html")
+	resp, err := httpClient.Get(options.HttpServerType + "://" + options.HttpServerAdr + ":" + options.HttpServerPort + "/resource/client/options.html")
 	if err == nil {
 		body, err := ioutil.ReadAll(resp.Body)
 		if err == nil {
@@ -110,7 +110,7 @@ func handleOptions(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleProfile(w http.ResponseWriter, r *http.Request) {
-	resp, err := http.Get(options.HttpServerType + "://" + options.HttpServerAdr + ":" + options.HttpServerPort + "/resource/client/profile.html")
+	resp, err := httpClient.Get(options.HttpServerType + "://" + options.HttpServerAdr + ":" + options.HttpServerPort + "/resource/client/profile.html")
 	if err == nil {
 		body, err := ioutil.ReadAll(resp.Body)
 		if err == nil {
@@ -126,7 +126,7 @@ func handleProfile(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleWelcome(w http.ResponseWriter, r *http.Request) {
-	resp, err := http.Get(options.HttpServerType + "://" + options.HttpServerAdr + ":" + options.HttpServerPort + "/resource/client/welcome.html")
+	resp, err := httpClient.Get(options.HttpServerType + "://" + options.HttpServerAdr + ":" + options.HttpServerPort + "/resource/client/welcome.html")
 	if err == nil {
 		body, err := ioutil.ReadAll(resp.Body)
 		if err == nil {
@@ -144,7 +144,7 @@ func handleWelcome(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleResource(w http.ResponseWriter, r *http.Request) {
-	resp, err := http.Get(options.HttpServerType + "://" + options.HttpServerAdr + ":" + options.HttpServerPort + r.RequestURI)
+	resp, err := httpClient.Get(options.HttpServerType + "://" + options.HttpServerAdr + ":" + options.HttpServerPort + r.RequestURI)
 	if err == nil {
 		body, err := ioutil.ReadAll(resp.Body)
 		if err == nil {

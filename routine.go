@@ -13,7 +13,6 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"net"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -24,9 +23,9 @@ import (
 )
 
 func getMac() string {
-	int, err := net.Interfaces()
+	interfaces, err := net.Interfaces()
 	if err == nil {
-		for _, i := range int {
+		for _, i := range interfaces {
 			if (i.Flags&net.FlagLoopback == 0) && (i.Flags&net.FlagPointToPoint == 0) && (i.Flags&net.FlagUp == 1) {
 
 				return i.HardwareAddr.String()
@@ -44,7 +43,7 @@ func logAdd(TMessage int, Message string) {
 			logFile, _ = os.Create(LogName)
 		}
 
-		//todo наверное стоит убрать, но пока меашет пинг в логах
+		//todo наверное стоит убрать, но пока мешает пинг в логах
 		if strings.Contains(Message, "buff (31): {\"TMessage\":18,\"Messages\":null}") || strings.Contains(Message, "{18 []}") {
 			return
 		}
@@ -85,6 +84,10 @@ func sendMessageToSocket(conn *net.Conn, TMessage int, Messages ...string) bool 
 
 	out, err := json.Marshal(mes)
 	if err == nil {
+		err = (*conn).SetWriteDeadline(time.Now().Add(time.Second))
+		if err != nil {
+			return false
+		}
 		_, err = (*conn).Write(out)
 		if err == nil {
 			return true
@@ -144,7 +147,6 @@ func pageReplace(e []byte, a string, b string) []byte {
 }
 
 func getSHA256(str string) string {
-
 	s := sha256.Sum256([]byte(str))
 	var r string
 
@@ -215,14 +217,7 @@ func defaultOptions() bool {
 func loadOptions() bool {
 	logAdd(MessInfo, "Пробуем загрузить настройки")
 
-	f, err := os.OpenFile(parentPath+OptionsFile, os.O_RDONLY, 0)
-	if err != nil {
-		logAdd(MessError, "Не получилось открыть настройки "+fmt.Sprint(err))
-		return false
-	}
-	defer f.Close()
-
-	buff, err := ioutil.ReadAll(f)
+	buff, err := ioutil.ReadFile(parentPath + OptionsFile)
 	if err != nil {
 		logAdd(MessError, "Не получилось прочитать настройки "+fmt.Sprint(err))
 		return false
@@ -234,9 +229,6 @@ func loadOptions() bool {
 		return false
 	}
 
-	//if options.ActiveVncId > len(arrayVnc) - 1 {
-	//	options.ActiveVncId = -1;
-	//}
 	return true
 }
 
@@ -267,16 +259,9 @@ func saveListVNC() bool {
 
 func loadListVNC() bool {
 	logAdd(MessInfo, "Пробуем загрузить список VNC")
-
-	f, err := os.OpenFile(parentPath+VNCListFile, os.O_RDONLY, 0)
+	buff, err := ioutil.ReadFile(parentPath + VNCListFile)
 	if err != nil {
 		logAdd(MessError, "Не получилось загрузить список VNC: "+fmt.Sprint(err))
-		return false
-	}
-	defer f.Close()
-
-	buff, err := ioutil.ReadAll(f)
-	if err != nil {
 		options.ActiveVncId = -1
 		return false
 	}
@@ -309,21 +294,21 @@ func extractZip(arch string, out string) bool {
 			logAdd(MessError, "Не получилось открыть файл: "+fmt.Sprint(err))
 			continue
 		}
-		defer zipped.Close()
 		path := filepath.Join(out, f.Name)
 		if f.FileInfo().IsDir() {
-			os.MkdirAll(path, f.Mode())
+			_ = os.MkdirAll(path, f.Mode())
 		} else {
 			writer, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE, f.Mode())
 			if err != nil {
 				logAdd(MessError, "Не получается распаковать: "+fmt.Sprint(err))
 				continue
 			}
-			defer writer.Close()
 			if _, err = io.Copy(writer, zipped); err != nil {
 				logAdd(MessError, "Не получается распаковать: "+fmt.Sprint(err))
 			}
+			_ = writer.Close()
 		}
+		_ = zipped.Close()
 	}
 
 	logAdd(MessInfo, "Распаковка закончена")
@@ -342,15 +327,15 @@ func getAndExtractVNC(i int) bool {
 
 	logAdd(MessError, "Собираемся получить и включить "+arrayVnc[i].Name+" "+arrayVnc[i].Version)
 
-	resp, err := http.Get(options.HttpServerType + "://" + options.HttpServerAdr + ":" + options.HttpServerPort + arrayVnc[i].Link)
+	resp, err := httpClient.Get(options.HttpServerType + "://" + options.HttpServerAdr + ":" + options.HttpServerPort + arrayVnc[i].Link)
 	if err != nil {
 		logAdd(MessError, "Не получилось получить с сервера VNC: "+fmt.Sprint(err))
 		return false
 	}
 
-	os.Mkdir(parentPath+VNCFolder, 0)
-	os.Mkdir(parentPath+VNCFolder+string(os.PathSeparator)+arrayVnc[i].Name+"_"+arrayVnc[i].Version, 0)
-	f, err := os.OpenFile(parentPath+VNCFolder+string(os.PathSeparator)+arrayVnc[i].Name+"_"+arrayVnc[i].Version+string(os.PathSeparator)+"tmp.zip", os.O_CREATE, 0)
+	_ = os.Mkdir(parentPath+VNCFolder, 0)
+	_ = os.Mkdir(parentPath+VNCFolder+string(os.PathSeparator)+arrayVnc[i].Name+"_"+arrayVnc[i].Version, 0)
+	f, err := os.OpenFile(parentPath+VNCFolder+string(os.PathSeparator)+arrayVnc[i].Name+"_"+arrayVnc[i].Version+string(os.PathSeparator)+"tmp.zipFile", os.O_CREATE, 0)
 	if err != nil {
 		logAdd(MessError, "Не получилось получить с сервера VNC: "+fmt.Sprint(err))
 		return false
@@ -362,7 +347,7 @@ func getAndExtractVNC(i int) bool {
 		logAdd(MessError, "Не получилось прочитать ответ с сервера VNC: "+fmt.Sprint(err))
 		return false
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 
 	_, err = f.Write(buff)
 	if err != nil {
@@ -372,9 +357,9 @@ func getAndExtractVNC(i int) bool {
 
 	logAdd(MessInfo, "Получили архив с "+arrayVnc[i].Name+" "+arrayVnc[i].Version)
 
-	zip := parentPath + VNCFolder + string(os.PathSeparator) + arrayVnc[i].Name + "_" + arrayVnc[i].Version + string(os.PathSeparator) + "tmp.zip"
+	zipFile := parentPath + VNCFolder + string(os.PathSeparator) + arrayVnc[i].Name + "_" + arrayVnc[i].Version + string(os.PathSeparator) + "tmp.zipFile"
 	out := parentPath + VNCFolder + string(os.PathSeparator) + arrayVnc[i].Name + "_" + arrayVnc[i].Version
-	if extractZip(zip, out) {
+	if extractZip(zipFile, out) {
 		options.ActiveVncId = i
 		return true
 	}
@@ -385,7 +370,7 @@ func getAndExtractVNC(i int) bool {
 func getListVNC() bool {
 	logAdd(MessInfo, "Получим список VNC")
 
-	resp, err := http.Get(options.HttpServerType + "://" + options.HttpServerAdr + ":" + options.HttpServerPort + "/api?make=listvnc")
+	resp, err := httpClient.Get(options.HttpServerType + "://" + options.HttpServerAdr + ":" + options.HttpServerPort + "/api?make=listvnc")
 	if err != nil {
 		logAdd(MessError, "Не получилось получить с сервера VNC: "+fmt.Sprint(err))
 		return false
@@ -396,7 +381,7 @@ func getListVNC() bool {
 		logAdd(MessError, "Не получилось прочитать ответ с сервера VNC: "+fmt.Sprint(err))
 		return false
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 
 	err = json.Unmarshal(buff, &arrayVnc)
 	if err != nil {
@@ -418,7 +403,7 @@ func actVNC(cmd string) bool {
 		return true
 	}
 
-	os.Chdir(parentPath + VNCFolder + string(os.PathSeparator) + arrayVnc[options.ActiveVncId].Name + "_" + arrayVnc[options.ActiveVncId].Version + string(os.PathSeparator))
+	_ = os.Chdir(parentPath + VNCFolder + string(os.PathSeparator) + arrayVnc[options.ActiveVncId].Name + "_" + arrayVnc[options.ActiveVncId].Version + string(os.PathSeparator))
 
 	logAdd(MessDetail, "Выполняем "+cmd)
 	str := strings.Split(cmd, " ")
@@ -426,11 +411,11 @@ func actVNC(cmd string) bool {
 	logAdd(MessInfo, fmt.Sprint(cmd, " result: ", out))
 	if err != nil {
 		logAdd(MessError, fmt.Sprint(cmd, " error: ", err))
-		os.Chdir(parentPath)
+		_ = os.Chdir(parentPath)
 		return false
 	}
 
-	os.Chdir(parentPath)
+	_ = os.Chdir(parentPath)
 	return true
 }
 
@@ -477,7 +462,7 @@ func terminateMe(term bool) {
 	closeVNC()
 
 	if logFile != nil {
-		logFile.Close()
+		_ = logFile.Close()
 	}
 	os.Exit(0)
 }
@@ -494,7 +479,7 @@ func updateMe() bool {
 		logAdd(MessError, "Не получилось удалить старый временный файл: "+fmt.Sprint(err))
 	}
 
-	resp, err := http.Get(options.HttpServerType + "://" + options.HttpServerAdr + ":" + options.HttpServerPort + "/resource/revisit.exe")
+	resp, err := httpClient.Get(options.HttpServerType + "://" + options.HttpServerAdr + ":" + options.HttpServerPort + "/resource/revisit.exe")
 	if err != nil || resp.StatusCode != 200 {
 		logAdd(MessError, "Не получилось получить с сервера VNC: "+fmt.Sprint(err))
 		return false
@@ -511,14 +496,14 @@ func updateMe() bool {
 		logAdd(MessError, "Не получилось прочитать ответ с сервера: "+fmt.Sprint(err))
 		return false
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 
 	_, err = f.Write(buff)
 	if err != nil {
 		logAdd(MessError, "Не получилось получить записать новую версию: "+fmt.Sprint(err))
 		return false
 	}
-	f.Close()
+	_ = f.Close()
 
 	_, myName := filepath.Split(os.Args[0])
 	err = os.Rename(parentPath+myName, parentPath+"communicator_old.exe")
@@ -579,25 +564,25 @@ func reloadMe() bool {
 	sendMessageToLocalCons(TMessLocalReload)
 
 	if myClient.Conn != nil {
-		(*myClient.Conn).Close()
+		_ = (*myClient.Conn).Close()
 	}
 	if myClient.LocalServ != nil {
-		(*myClient.LocalServ).Close()
+		_ = (*myClient.LocalServ).Close()
 	}
 	if myClient.DataServ != nil {
-		(*myClient.DataServ).Close()
+		_ = (*myClient.DataServ).Close()
 	}
 	if myClient.WebServ != nil {
-		(*myClient.WebServ).Close()
+		_ = (*myClient.WebServ).Close()
 	}
 
 	closeVNC()
 	if logFile != nil {
-		logFile.Close()
+		_ = logFile.Close()
 	}
 
 	logAdd(MessInfo, "Запускаем новый экземпляр коммуникатора")
-	os.Chdir(parentPath)
+	_ = os.Chdir(parentPath)
 	_, myName := filepath.Split(os.Args[0])
 	var sI syscall.StartupInfo
 	sI.ShowWindow = 1
@@ -670,7 +655,6 @@ func processVNC(i int) {
 		}
 
 		break
-		time.Sleep(time.Second) //todo проверь почему оно у нас тут так
 	}
 
 	startVNC() //надо бы добавить проверку установлен уже или нет сервер
@@ -875,7 +859,7 @@ func updateAgentMetric(address string) int {
 	p.OnRecv = func(addr *net.IPAddr, rtt time.Duration) {
 		metric = int(rtt.Nanoseconds() / 1000)
 	}
-	p.Run()
+	_ = p.Run()
 	return metric
 }
 
@@ -886,7 +870,6 @@ func printAgentsMetric() {
 }
 
 func refreshAgents() {
-
 	if chRefreshAgents == nil {
 		chRefreshAgents = make(chan bool)
 	}
@@ -901,5 +884,4 @@ func refreshAgents() {
 		case <-chRefreshAgents:
 		}
 	}
-
 }

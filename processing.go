@@ -9,7 +9,18 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
+
+var (
+	httpClient http.Client
+)
+
+func init() {
+	httpClient = http.Client{
+		Timeout: time.Second,
+	}
+}
 
 func processDeauth(message Message, conn *net.Conn) {
 	logAdd(MessInfo, "Пришел отказ на авторизацию")
@@ -98,9 +109,9 @@ func processConnect(message Message, conn *net.Conn) {
 	if tconn == "simple" {
 		logAdd(MessInfo, "Запускаем простой тип подключения")
 		if ctype == "server" {
-			go connectVisit(address+":"+options.DataServerPort, options.LocalAdrVNC+":"+arrayVnc[options.ActiveVncId].PortServerVNC, code, false, 1); //тот кто передает трансляцию
+			go connectVisit(address+":"+options.DataServerPort, options.LocalAdrVNC+":"+arrayVnc[options.ActiveVncId].PortServerVNC, code, false, 1) //тот кто передает трансляцию
 		} else {
-			go connectVisit(address+":"+options.DataServerPort, options.LocalAdrVNC+":"+options.PortClientVNC, code, false, 2); //тот кто получает трансляцию
+			go connectVisit(address+":"+options.DataServerPort, options.LocalAdrVNC+":"+options.PortClientVNC, code, false, 2) //тот кто получает трансляцию
 			sendMessageToSocket(uiClient, TMessLocalExec, parentPath+VNCFolder+string(os.PathSeparator)+arrayVnc[options.ActiveVncId].Name+"_"+arrayVnc[options.ActiveVncId].Version+string(os.PathSeparator)+strings.Replace(arrayVnc[options.ActiveVncId].CmdStartClient, "%adr", options.LocalAdrVNC+":"+options.PortClientVNC, 1))
 			sendMessageToLocalCons(TMessLocalStandartAlert, fmt.Sprint(StaticMessageLocalConn))
 		}
@@ -420,7 +431,7 @@ func processLocalConnectContact(message Message, conn *net.Conn) {
 func processLocalListVNC(message Message, conn *net.Conn) {
 	logAdd(MessInfo, "Пришел локальный запрос на список VNC")
 
-	resp, err := http.Get(options.HttpServerType + "://" + options.HttpServerAdr + ":" + options.HttpServerPort + "/api?make=listvnc")
+	resp, err := httpClient.Get(options.HttpServerType + "://" + options.HttpServerAdr + ":" + options.HttpServerPort + "/api?make=listvnc")
 	if err != nil {
 		logAdd(MessError, "Не получилось получить с сервера VNC: "+fmt.Sprint(err))
 		return
@@ -429,6 +440,7 @@ func processLocalListVNC(message Message, conn *net.Conn) {
 	var buff []byte
 	buff = make([]byte, options.SizeBuff*options.SizeBuff)
 	n, err := resp.Body.Read(buff)
+	defer resp.Body.Close()
 
 	var listVNC []VNC
 	err = json.Unmarshal(buff[:n], &listVNC)
@@ -440,7 +452,6 @@ func processLocalListVNC(message Message, conn *net.Conn) {
 	for _, x := range listVNC {
 		sendMessageToSocket(conn, TMessLocalListvnc, x.Name+" "+x.Version, x.Link)
 	}
-
 }
 
 func processLocalInfoContact(message Message, conn *net.Conn) {
