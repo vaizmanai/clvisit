@@ -22,15 +22,15 @@ func init() {
 	}
 }
 
-func processDeauth(message Message, conn *net.Conn) {
+func processDeauth(_ Message, _ *net.Conn) {
 	logAdd(MessInfo, "Пришел отказ на авторизацию")
 
 	if myClient.Conn != nil {
-		(*myClient.Conn).Close()
+		_ = (*myClient.Conn).Close()
 	}
 }
 
-func processAuth(message Message, conn *net.Conn) {
+func processAuth(message Message, _ *net.Conn) {
 	logAdd(MessInfo, "Пришел ответ на авторизацию")
 	if len(message.Messages) < 2 {
 		logAdd(MessError, "Не правильное кол-во полей")
@@ -61,8 +61,8 @@ func processAuth(message Message, conn *net.Conn) {
 		options.ProfileLogin, options.ProfilePass, myClient.Token)
 }
 
-func processLogin(message Message, conn *net.Conn) {
-	logAdd(MessInfo, "Пришел ответ на вход в учетку")
+func processLogin(message Message, _ *net.Conn) {
+	logAdd(MessInfo, "Пришел ответ на вход в учетную запись")
 
 	sendMessageToLocalCons(TMessLocalLogin)
 }
@@ -76,7 +76,7 @@ func processNotification(message Message, conn *net.Conn) {
 	sendMessageToLocalCons(TMessLocalNotification, message.Messages[0])
 }
 
-func processConnect(message Message, conn *net.Conn) {
+func processConnect(message Message, _ *net.Conn) {
 	logAdd(MessInfo, "Пришел запрос на подключение")
 	if len(message.Messages) < 7 {
 		logAdd(MessError, "Не правильное кол-во полей")
@@ -94,7 +94,7 @@ func processConnect(message Message, conn *net.Conn) {
 
 	if getSHA256(getPass()+salt) != digest && ctype == "server" {
 		logAdd(MessError, "Не верный пароль")
-		sendMessage(TMessNotification, message.Messages[5], "Не прошлил аутентификацию!") //todo убрать
+		sendMessage(TMessNotification, message.Messages[5], "Аутентификация провалилась!") //todo убрать
 		sendMessage(TMessDisconnect, code, fmt.Sprint(StaticMessageAuthError))
 		return
 	}
@@ -113,7 +113,7 @@ func processConnect(message Message, conn *net.Conn) {
 		} else {
 			go connectVisit(address+":"+options.DataServerPort, options.LocalAdrVNC+":"+options.PortClientVNC, code, false, 2) //тот кто получает трансляцию
 			sendMessageToSocket(uiClient, TMessLocalExec, parentPath+VNCFolder+string(os.PathSeparator)+arrayVnc[options.ActiveVncId].Name+"_"+arrayVnc[options.ActiveVncId].Version+string(os.PathSeparator)+strings.Replace(arrayVnc[options.ActiveVncId].CmdStartClient, "%adr", options.LocalAdrVNC+":"+options.PortClientVNC, 1))
-			sendMessageToLocalCons(TMessLocalStandartAlert, fmt.Sprint(StaticMessageLocalConn))
+			sendMessageToLocalCons(TMessLocalStandardAlert, fmt.Sprint(StaticMessageLocalConn))
 		}
 	} else {
 		logAdd(MessInfo, "Неизвестный тип подключения")
@@ -128,10 +128,10 @@ func processDisconnect(message Message, conn *net.Conn) {
 		logAdd(MessError, "Не правильное кол-во полей")
 		return
 	}
-	sendMessageToLocalCons(TMessLocalStandartAlert, fmt.Sprint(StaticMessageLocalDisconn))
+	sendMessageToLocalCons(TMessLocalStandardAlert, fmt.Sprint(StaticMessageLocalDisconn))
 }
 
-func processContacts(message Message, conn *net.Conn) {
+func processContacts(message Message, _ *net.Conn) {
 	logAdd(MessInfo, "Пришли контакты")
 	dec, err := url.PathUnescape(message.Messages[0])
 	if err == nil {
@@ -157,22 +157,17 @@ func processContact(message Message, conn *net.Conn) {
 	sendMessageToLocalCons(TMessLocalContact, message.Messages...)
 }
 
-func processStatus(message Message, conn *net.Conn) {
+func processStatus(message Message, _ *net.Conn) {
 	logAdd(MessInfo, "Пришел статус контакта")
 
 	sendMessageToLocalCons(TMessLocalStatus, message.Messages...)
 }
 
-func processInfoContact(message Message, conn *net.Conn) {
+func processInfoContact(message Message, _ *net.Conn) {
 	logAdd(MessInfo, "Пришел запрос на информацию")
 
 	if getSHA256(getPass()+message.Messages[2]) == message.Messages[1] {
-		//todo добавить много всякой инфы
 		hostname, _ := os.Hostname()
-
-		//uptime := gosigar.Uptime{}
-		//uptime.Get()
-
 		sendMessage(TMessInfoAnswer, message.Messages[0], fmt.Sprint(options.ActiveVncId), hostname, GetInfoOS(), RevisitVersion)
 		return
 	}
@@ -180,13 +175,13 @@ func processInfoContact(message Message, conn *net.Conn) {
 	logAdd(MessError, "Не правильные контрольные данные")
 }
 
-func processInfoAnswer(message Message, conn *net.Conn) {
+func processInfoAnswer(message Message, _ *net.Conn) {
 	logAdd(MessInfo, "Пришел ответ запроса на информацию")
 
 	sendMessageToLocalCons(TMessLocalInfoAnswer, message.Messages...)
 }
 
-func processManage(message Message, conn *net.Conn) {
+func processManage(message Message, _ *net.Conn) {
 	logAdd(MessInfo, "Пришел запрос на управление")
 
 	//Message[0] who called(pid)
@@ -226,19 +221,19 @@ func processPing(message Message, conn *net.Conn) {
 	//logAdd(MessInfo, "Пришел пинг")
 }
 
-func processStandardAlert(message Message, conn *net.Conn) {
+func processStandardAlert(message Message, _ *net.Conn) {
 	logAdd(MessInfo, "Пришло стандартное уведомление")
 
 	if len(message.Messages) > 0 {
 		i, err := strconv.Atoi(message.Messages[0])
 		if err == nil {
 			logAdd(MessInfo, "Текст уведомления: "+messStaticText[i])
-			sendMessageToSocket(uiClient, TMessLocalStandartAlert, message.Messages[0])
+			sendMessageToSocket(uiClient, TMessLocalStandardAlert, message.Messages[0])
 		}
 	}
 }
 
-func processServers(message Message, conn *net.Conn) {
+func processServers(message Message, _ *net.Conn) {
 	logAdd(MessInfo, "Пришла информации по агентам")
 
 	if len(message.Messages) == 2 {
@@ -388,7 +383,7 @@ func processLocalLogin(message Message, conn *net.Conn) {
 	sendMessage(TMessLogin, message.Messages[0], getSHA256(message.Messages[1]+myClient.Salt))
 }
 
-func processLocalContact(message Message, conn *net.Conn) {
+func processLocalContact(message Message, _ *net.Conn) {
 	logAdd(MessInfo, "Пришел локальный запрос управления контактом")
 
 	digest := ""
@@ -398,13 +393,13 @@ func processLocalContact(message Message, conn *net.Conn) {
 	sendMessage(TMessContact, message.Messages[0], message.Messages[1], message.Messages[2], message.Messages[3], digest, message.Messages[5])
 }
 
-func processLocalContacts(message Message, conn *net.Conn) {
+func processLocalContacts(message Message, _ *net.Conn) {
 	logAdd(MessInfo, "Пришел локальный запрос на обновления списка контактов")
 
 	sendMessage(TMessContacts)
 }
 
-func processLocalLogout(message Message, conn *net.Conn) {
+func processLocalLogout(message Message, _ *net.Conn) {
 	logAdd(MessInfo, "Пришел локальный запрос на выход")
 	myClient.Profile.Contacts = nil
 
@@ -425,7 +420,7 @@ func processLocalConnectContact(message Message, conn *net.Conn) {
 		sendMessage(TMessConnectContact, message.Messages[0])
 	}
 
-	sendMessageToLocalCons(TMessLocalStandartAlert, fmt.Sprint(StaticMessageLocalReq))
+	sendMessageToLocalCons(TMessLocalStandardAlert, fmt.Sprint(StaticMessageLocalReq))
 }
 
 func processLocalListVNC(message Message, conn *net.Conn) {
@@ -433,7 +428,7 @@ func processLocalListVNC(message Message, conn *net.Conn) {
 
 	resp, err := httpClient.Get(options.HttpServerType + "://" + options.HttpServerAdr + ":" + options.HttpServerPort + "/api?make=listvnc")
 	if err != nil {
-		logAdd(MessError, "Не получилось получить с сервера VNC: "+fmt.Sprint(err))
+		logAdd(MessError, "Не получилось получить с сервера VNC: "+err.Error())
 		return
 	}
 
@@ -445,41 +440,41 @@ func processLocalListVNC(message Message, conn *net.Conn) {
 	var listVNC []VNC
 	err = json.Unmarshal(buff[:n], &listVNC)
 	if err != nil {
-		logAdd(MessError, "Не получилось получить с сервера VNC: "+fmt.Sprint(err))
+		logAdd(MessError, "Не получилось получить с сервера VNC: "+err.Error())
 		return
 	}
 
 	for _, x := range listVNC {
-		sendMessageToSocket(conn, TMessLocalListvnc, x.Name+" "+x.Version, x.Link)
+		sendMessageToSocket(conn, TMessLocalListVNC, x.Name+" "+x.Version, x.Link)
 	}
 }
 
-func processLocalInfoContact(message Message, conn *net.Conn) {
+func processLocalInfoContact(message Message, _ *net.Conn) {
 	logAdd(MessInfo, "Пришел локальный запрос на информацию о контакте")
 
 	sendMessage(TMessInfoContact, message.Messages[0])
 }
 
-func processLocalManage(message Message, conn *net.Conn) {
+func processLocalManage(message Message, _ *net.Conn) {
 	logAdd(MessInfo, "Пришел локальный запрос на управление")
 
 	sendMessage(TMessManage, message.Messages...)
 }
 
-func processLocalSave(message Message, conn *net.Conn) {
+func processLocalSave(message Message, _ *net.Conn) {
 	logAdd(MessInfo, "Пришел локальный запрос на сохранение опций")
 
 	saveOptions()
 }
 
-func processLocalOptionClear(message Message, conn *net.Conn) {
+func processLocalOptionClear(message Message, _ *net.Conn) {
 	logAdd(MessInfo, "Пришел локальный запрос на восстановление дефолтных опций")
 
 	defaultOptions()
 	processVNC(0)
 }
 
-func processLocalMyManage(message Message, conn *net.Conn) {
+func processLocalMyManage(message Message, _ *net.Conn) {
 	logAdd(MessInfo, "Пришел локальный запрос на своё управление")
 
 	if message.Messages[0] == "revnc" {
@@ -502,14 +497,14 @@ func processLocalMyManage(message Message, conn *net.Conn) {
 	}
 }
 
-func processLocalMyInfo(message Message, conn *net.Conn) {
+func processLocalMyInfo(message Message, _ *net.Conn) {
 	logAdd(MessInfo, "Пришел локальный запрос на свою информацию")
 
 	hostname, _ := os.Hostname()
 	sendMessageToLocalCons(TMessLocalInfoAnswer, "", fmt.Sprint(options.ActiveVncId), hostname, GetInfoOS(), RevisitVersion)
 }
 
-func processLocalContactReverse(message Message, conn *net.Conn) {
+func processLocalContactReverse(message Message, _ *net.Conn) {
 	logAdd(MessInfo, "Пришел локальный запрос на добавление в чужой профиль")
 
 	hostname, _ := os.Hostname()
@@ -534,7 +529,7 @@ func processLocalProxy(message Message, conn *net.Conn) {
 		options.Proxy = message.Messages[0] + ":" + message.Messages[1]
 		saveOptions()
 		if myClient.Conn != nil {
-			(*myClient.Conn).Close()
+			_ = (*myClient.Conn).Close()
 		}
 	} else {
 		if strings.Contains(options.Proxy, ":") {

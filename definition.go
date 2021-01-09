@@ -91,7 +91,7 @@ const (
 	TMessLocalMessage       = 32 //система сообщений
 	TMessLocalExec          = 33 //запуск приложения, например, внс клиента
 	TMessLocalStatus        = 34 //
-	TMessLocalListvnc       = 35 //
+	TMessLocalListVNC       = 35 //
 	TMessLocalInfoContact   = 36 //
 	TMessLocalInfoAnswer    = 37 //
 	TMessLocalManage        = 38 //
@@ -105,17 +105,16 @@ const (
 	TMessLocalContReverse   = 46 //
 	TMessLocalOptionsUi     = 47 //
 	TMessLocalProxy         = 48 //
-	TMessLocalStandartAlert = 49
+	TMessLocalStandardAlert = 49
 )
 
 var (
-	//наша домашяя папка
+	//наша домашняя папка
 	parentPath string
 
 	//считаем сколько у нас всего соединений
 	connections Connections
 
-	//todo это ограничение мешает нам ожидать подключение к нескольким клиентам, только в порядке очереди
 	//ссылки на сокеты для локального сервера, который ждет локальный vnc viewer
 	peerBuff1 *pConn
 	peerBuff2 *pConn
@@ -210,7 +209,7 @@ var (
 		{TMessLocalMessage, nil},
 		{TMessLocalExec, nil},
 		{TMessLocalStatus, nil},
-		{TMessLocalListvnc, processLocalListVNC},
+		{TMessLocalListVNC, processLocalListVNC},
 		{TMessLocalInfoContact, processLocalInfoContact},
 		{TMessLocalInfoAnswer, nil},
 		{TMessLocalManage, processLocalManage},
@@ -224,7 +223,7 @@ var (
 		{TMessLocalContReverse, processLocalContactReverse},
 		{TMessLocalOptionsUi, processLocalOptionsUI},
 		{TMessLocalProxy, processLocalProxy},
-		{TMessLocalStandartAlert, nil}}
+		{TMessLocalStandardAlert, nil}}
 
 	//список доступных vnc
 	arrayVnc []VNC

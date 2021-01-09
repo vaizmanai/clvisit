@@ -30,6 +30,7 @@ func main() {
 	flag.Parse()
 
 	logAdd(MessInfo, "Запустился коммуникатор reVisit версии "+RevisitVersion)
+	logAdd(MessInfo, "Текущая папка: "+parentPath)
 
 	if !loadOptions() { //пробуем загрузить настройки, если они есть
 		defaultOptions()

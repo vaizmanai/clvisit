@@ -36,26 +36,24 @@ func getMac() string {
 	return "00:00:00:00:00:00"
 }
 
-func logAdd(TMessage int, Message string) {
+func logAdd(TMessage int, message string) {
 	if options.FDebug && (MessFull-options.TypeLog) <= TMessage {
 
 		if logFile == nil {
 			logFile, _ = os.Create(LogName)
 		}
 
-		//todo наверное стоит убрать, но пока мешает пинг в логах
-		if strings.Contains(Message, "buff (31): {\"TMessage\":18,\"Messages\":null}") || strings.Contains(Message, "{18 []}") {
+		if strings.Contains(message, `"TMessage":18,`) || strings.Contains(message, "{18 []}") {
 			return
 		}
 
-		//todo наверное стоит убрать, нужно на время отладки
 		if TMessage == MessInfo || TMessage == MessError {
-			sendMessageToLocalCons(TMessLocalLog, Message)
+			sendMessageToLocalCons(TMessLocalLog, message)
 		}
 
-		_, _ = logFile.Write([]byte(fmt.Sprint(time.Now().Format("02 Jan 2006 15:04:05.000000")) + "\t" + messLogText[TMessage] + ":\t" + Message + "\n"))
+		_, _ = logFile.Write([]byte(fmt.Sprint(time.Now().Format("02 Jan 2006 15:04:05.000000")) + "\t" + messLogText[TMessage] + ":\t" + message + "\n"))
 
-		fmt.Println(fmt.Sprint(time.Now().Format("02 Jan 2006 15:04:05.000000")) + "\t" + messLogText[TMessage] + ":\t" + Message)
+		fmt.Println(fmt.Sprint(time.Now().Format("02 Jan 2006 15:04:05.000000")) + "\t" + messLogText[TMessage] + ":\t" + message)
 	}
 }
 
@@ -128,8 +126,8 @@ func randomString(l int) string {
 	var result bytes.Buffer
 	var temp string
 	for i := 0; i < l; {
-		if string(randInt(65, 90)) != temp {
-			temp = string(randInt(65, 90))
+		if string(rune(randInt(65, 90))) != temp {
+			temp = string(rune(randInt(65, 90)))
 			result.WriteString(temp)
 			i++
 		}
@@ -173,9 +171,9 @@ func saveOptions() bool {
 		return false
 	}
 
-	_, err = f.Write(buff)
-	if err != nil {
-		logAdd(MessError, fmt.Sprintf("Не получилось сохранить настройки: %s", err.Error()))
+	n, err := f.Write(buff)
+	if err != nil || n != len(buff) {
+		logAdd(MessError, fmt.Sprintf("Не получилось сохранить настройки"))
 		return false
 	}
 	return true
@@ -283,7 +281,7 @@ func loadListVNC() bool {
 func extractZip(arch string, out string) bool {
 	reader, err := zip.OpenReader(arch)
 	if err != nil {
-		logAdd(MessError, "Не получилось открыть архив: "+fmt.Sprint(err))
+		logAdd(MessError, "Не получилось открыть архив: "+err.Error())
 		return false
 	}
 	defer reader.Close()
@@ -291,7 +289,7 @@ func extractZip(arch string, out string) bool {
 	for _, f := range reader.Reader.File {
 		zipped, err := f.Open()
 		if err != nil {
-			logAdd(MessError, "Не получилось открыть файл: "+fmt.Sprint(err))
+			logAdd(MessError, "Не получилось открыть файл: "+err.Error())
 			continue
 		}
 		path := filepath.Join(out, f.Name)
@@ -300,11 +298,11 @@ func extractZip(arch string, out string) bool {
 		} else {
 			writer, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE, f.Mode())
 			if err != nil {
-				logAdd(MessError, "Не получается распаковать: "+fmt.Sprint(err))
+				logAdd(MessError, "Не получается распаковать: "+err.Error())
 				continue
 			}
 			if _, err = io.Copy(writer, zipped); err != nil {
-				logAdd(MessError, "Не получается распаковать: "+fmt.Sprint(err))
+				logAdd(MessError, "Не получается распаковать: "+err.Error())
 			}
 			_ = writer.Close()
 		}
@@ -329,35 +327,34 @@ func getAndExtractVNC(i int) bool {
 
 	resp, err := httpClient.Get(options.HttpServerType + "://" + options.HttpServerAdr + ":" + options.HttpServerPort + arrayVnc[i].Link)
 	if err != nil {
-		logAdd(MessError, "Не получилось получить с сервера VNC: "+fmt.Sprint(err))
+		logAdd(MessError, "Не получилось получить с сервера VNC: "+err.Error())
 		return false
 	}
 
-	_ = os.Mkdir(parentPath+VNCFolder, 0)
-	_ = os.Mkdir(parentPath+VNCFolder+string(os.PathSeparator)+arrayVnc[i].Name+"_"+arrayVnc[i].Version, 0)
-	f, err := os.OpenFile(parentPath+VNCFolder+string(os.PathSeparator)+arrayVnc[i].Name+"_"+arrayVnc[i].Version+string(os.PathSeparator)+"tmp.zipFile", os.O_CREATE, 0)
+	_ = os.MkdirAll(parentPath+VNCFolder+string(os.PathSeparator)+arrayVnc[i].Name+"_"+arrayVnc[i].Version, os.ModePerm)
+	f, err := os.OpenFile(parentPath+VNCFolder+string(os.PathSeparator)+arrayVnc[i].Name+"_"+arrayVnc[i].Version+string(os.PathSeparator)+"tmp.zip", os.O_CREATE, 0)
 	if err != nil {
-		logAdd(MessError, "Не получилось получить с сервера VNC: "+fmt.Sprint(err))
+		logAdd(MessError, "Не получилось получить с сервера VNC: "+err.Error())
 		return false
 	}
 	defer f.Close()
 
 	buff, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		logAdd(MessError, "Не получилось прочитать ответ с сервера VNC: "+fmt.Sprint(err))
+		logAdd(MessError, "Не получилось прочитать ответ с сервера VNC: "+err.Error())
 		return false
 	}
 	_ = resp.Body.Close()
 
 	_, err = f.Write(buff)
 	if err != nil {
-		logAdd(MessError, "Не получилось записать ответ с сервера VNC: "+fmt.Sprint(err))
+		logAdd(MessError, "Не получилось записать ответ с сервера VNC: "+err.Error())
 		return false
 	}
 
 	logAdd(MessInfo, "Получили архив с "+arrayVnc[i].Name+" "+arrayVnc[i].Version)
 
-	zipFile := parentPath + VNCFolder + string(os.PathSeparator) + arrayVnc[i].Name + "_" + arrayVnc[i].Version + string(os.PathSeparator) + "tmp.zipFile"
+	zipFile := parentPath + VNCFolder + string(os.PathSeparator) + arrayVnc[i].Name + "_" + arrayVnc[i].Version + string(os.PathSeparator) + "tmp.zip"
 	out := parentPath + VNCFolder + string(os.PathSeparator) + arrayVnc[i].Name + "_" + arrayVnc[i].Version
 	if extractZip(zipFile, out) {
 		options.ActiveVncId = i
@@ -372,20 +369,20 @@ func getListVNC() bool {
 
 	resp, err := httpClient.Get(options.HttpServerType + "://" + options.HttpServerAdr + ":" + options.HttpServerPort + "/api?make=listvnc")
 	if err != nil {
-		logAdd(MessError, "Не получилось получить с сервера VNC: "+fmt.Sprint(err))
+		logAdd(MessError, "Не получилось получить с сервера VNC: "+err.Error())
 		return false
 	}
 
 	buff, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		logAdd(MessError, "Не получилось прочитать ответ с сервера VNC: "+fmt.Sprint(err))
+		logAdd(MessError, "Не получилось прочитать ответ с сервера VNC: "+err.Error())
 		return false
 	}
 	_ = resp.Body.Close()
 
 	err = json.Unmarshal(buff, &arrayVnc)
 	if err != nil {
-		logAdd(MessError, "Не получилось получить с сервера VNC: "+fmt.Sprint(err))
+		logAdd(MessError, "Не получилось получить с сервера VNC: "+err.Error())
 		return false
 	}
 
@@ -487,20 +484,20 @@ func updateMe() bool {
 
 	f, err := os.OpenFile(parentPath+"revisit_new.exe", os.O_CREATE, 0)
 	if err != nil {
-		logAdd(MessError, "Не получилось создать временный файл: "+fmt.Sprint(err))
+		logAdd(MessError, "Не получилось создать временный файл: "+err.Error())
 		return false
 	}
 
 	buff, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		logAdd(MessError, "Не получилось прочитать ответ с сервера: "+fmt.Sprint(err))
+		logAdd(MessError, "Не получилось прочитать ответ с сервера: "+err.Error())
 		return false
 	}
 	_ = resp.Body.Close()
 
 	_, err = f.Write(buff)
 	if err != nil {
-		logAdd(MessError, "Не получилось получить записать новую версию: "+fmt.Sprint(err))
+		logAdd(MessError, "Не получилось получить записать новую версию: "+err.Error())
 		return false
 	}
 	_ = f.Close()
@@ -508,16 +505,16 @@ func updateMe() bool {
 	_, myName := filepath.Split(os.Args[0])
 	err = os.Rename(parentPath+myName, parentPath+"communicator_old.exe")
 	if err != nil {
-		logAdd(MessError, "Не получилось получить переименновать файл: "+fmt.Sprint(err))
+		logAdd(MessError, "Не получилось получить переименовать файл: "+err.Error())
 		return false
 	}
 
 	err = os.Rename(parentPath+"revisit.exe", parentPath+"revisit_old.exe")
 	if err != nil {
-		logAdd(MessError, "Не получилось получить переименновать файл: "+fmt.Sprint(err))
+		logAdd(MessError, "Не получилось получить переименовать файл: "+err.Error())
 		err = os.Rename(parentPath+"communicator_old.exe", parentPath+myName)
 		if err != nil {
-			logAdd(MessError, "Не получилось получить откатить файл: "+fmt.Sprint(err))
+			logAdd(MessError, "Не получилось получить откатить файл: "+err.Error())
 			return false
 		}
 		logAdd(MessInfo, "Откатились назад")
@@ -526,15 +523,15 @@ func updateMe() bool {
 
 	_, err = exec.Command(parentPath+"revisit_new.exe", "-extract").Output()
 	if err != nil {
-		logAdd(MessError, "Не получилось распаковать коммуниктор: "+fmt.Sprint(err))
+		logAdd(MessError, "Не получилось распаковать коммуникатор: "+err.Error())
 		err = os.Rename(parentPath+"communicator_old.exe", parentPath+myName)
 		if err != nil {
-			logAdd(MessError, "Не получилось получить откатить файл: "+fmt.Sprint(err))
+			logAdd(MessError, "Не получилось получить откатить файл: "+err.Error())
 			return false
 		}
 		err = os.Rename(parentPath+"revisit_old.exe", parentPath+"revisit.exe")
 		if err != nil {
-			logAdd(MessError, "Не получилось получить откатить файл: "+fmt.Sprint(err))
+			logAdd(MessError, "Не получилось получить откатить файл: "+err.Error())
 			return false
 		}
 		logAdd(MessInfo, "Откатились назад")
@@ -543,10 +540,10 @@ func updateMe() bool {
 
 	err = os.Rename(parentPath+"revisit_new.exe", parentPath+"revisit.exe")
 	if err != nil {
-		logAdd(MessError, "Не получилось переименновать новый клиент, оставим старый: "+fmt.Sprint(err))
+		logAdd(MessError, "Не получилось переименовать новый клиент, оставим старый: "+err.Error())
 		err = os.Rename(parentPath+"revisit_old.exe", parentPath+"revisit.exe")
 		if err != nil {
-			logAdd(MessError, "Не получилось получить откатить файл: "+fmt.Sprint(err))
+			logAdd(MessError, "Не получилось получить откатить файл: "+err.Error())
 			return false
 		}
 		logAdd(MessInfo, "Попробуем запуститься с новым коммуникатором")
@@ -602,7 +599,7 @@ func reloadMe() bool {
 
 	if err != nil {
 		flagReload = false
-		logAdd(MessError, "Не получилось перезапустить коммуниктор: "+fmt.Sprint(err))
+		logAdd(MessError, "Не получилось перезапустить коммуникатор: "+fmt.Sprint(err))
 		return false
 	}
 
@@ -622,8 +619,6 @@ func restartSystem() bool {
 }
 
 func processVNC(i int) {
-
-	//todo надо бы ещё проверить наличие сессий по vnc
 	if flagReinstallVnc {
 		logAdd(MessError, "Уже кто-то запустил процесс переустановки VNC")
 		return
@@ -635,7 +630,7 @@ func processVNC(i int) {
 	closeVNC()
 
 	for {
-		//пробуем запустить vnc когда у нас уже есть коннект до сервера, если что можем загрузить новый vnc с сервера
+		//пробуем запустить vnc когда у нас уже есть подключение до сервера, если что можем загрузить новый vnc с сервера
 		if !loadListVNC() || options.ActiveVncId != i || options.ActiveVncId > len(arrayVnc)-1 {
 			if getListVNC() {
 				if options.ActiveVncId > len(arrayVnc)-1 {
@@ -649,16 +644,16 @@ func processVNC(i int) {
 					saveListVNC()
 					break
 				}
+				time.Sleep(time.Second)
 				continue
 			}
+			time.Sleep(time.Second)
 			continue
 		}
-
 		break
 	}
 
 	startVNC() //надо бы добавить проверку установлен уже или нет сервер
-
 	flagReinstallVnc = false
 }
 
@@ -776,7 +771,7 @@ func decXOR(str1, str2 string) (string, bool) {
 	if err == nil {
 		for i, b := range decoded {
 			a := str2[i%len(str2)]
-			c := uint8(b) ^ a
+			c := b ^ a
 			result = result + string(c)
 		}
 
@@ -795,35 +790,35 @@ func decXOR(str1, str2 string) (string, bool) {
 }
 
 func getPass() string {
-
-	if len(myClient.Pid) == 0 {
-		//это не даст удаленной системе подключиться к нам
-		return "***" + randomString(2)
-	}
-
-	if flagPassword {
-		return options.Pass
-	}
-
-	if len(options.Pass) > 0 {
-		pass, success := decXOR(options.Pass, myClient.Pid)
-		if success == true {
-			return pass
+	for {
+		if len(myClient.Pid) == 0 {
+			//это не даст удаленной системе подключиться к нам
+			return "***" + randomString(2)
 		}
+
+		if flagPassword {
+			return options.Pass
+		}
+
+		if len(options.Pass) > 0 {
+			pass, success := decXOR(options.Pass, myClient.Pid)
+			if success == true {
+				return pass
+			}
+		}
+
+		logAdd(MessError, "Не получилось расшифровать пароль")
+
+		if DefaultNumberPassword {
+			options.Pass = encXOR(randomNumber(LengthPass), myClient.Pid)
+		} else {
+			options.Pass = encXOR(randomString(LengthPass), myClient.Pid)
+		}
+
+		logAdd(MessInfo, "Сгенерировали новый пароль")
+		saveOptions()
+		time.Sleep(time.Second)
 	}
-
-	logAdd(MessError, "Не получилось расшифровать пароль")
-
-	if DefaultNumberPassword {
-		options.Pass = encXOR(randomNumber(LengthPass), myClient.Pid)
-	} else {
-		options.Pass = encXOR(randomString(LengthPass), myClient.Pid)
-	}
-
-	logAdd(MessInfo, "Сгенерировали новый пароль")
-	saveOptions()
-
-	return getPass()
 }
 
 func sortAgents() {

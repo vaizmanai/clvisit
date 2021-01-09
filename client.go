@@ -682,11 +682,11 @@ func connectClient(adr string, code string, peer1 *pConn, peer2 *pConn, id strin
 		if len(code) > 0 {
 			sendMessage(TMessDisconnect, code, fmt.Sprint(StaticMessageTimeoutError))
 		}
-		sendMessageToLocalCons(TMessLocalStandartAlert, fmt.Sprint(StaticMessageLocalError))
+		sendMessageToLocalCons(TMessLocalStandardAlert, fmt.Sprint(StaticMessageLocalError))
 		return
 	}
 
-	sendMessageToLocalCons(TMessLocalStandartAlert, fmt.Sprint(StaticMessageLocalConn))
+	sendMessageToLocalCons(TMessLocalStandardAlert, fmt.Sprint(StaticMessageLocalConn))
 	logAdd(MessInfo, id+" peer существует для клиента")
 	time.Sleep(time.Millisecond * WaitAfterConnect)
 
@@ -704,5 +704,5 @@ func connectClient(adr string, code string, peer1 *pConn, peer2 *pConn, id strin
 	}
 
 	logAdd(MessInfo, id+" клиент завершил работу")
-	sendMessageToLocalCons(TMessLocalStandartAlert, fmt.Sprint(StaticMessageLocalDisconn))
+	sendMessageToLocalCons(TMessLocalStandardAlert, fmt.Sprint(StaticMessageLocalDisconn))
 }
