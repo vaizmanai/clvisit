@@ -479,7 +479,7 @@ func updateMe() bool {
 
 	resp, err := httpClient.Get(options.HttpServerType + "://" + options.HttpServerAdr + ":" + options.HttpServerPort + "/resource/revisit.exe")
 	if err != nil || resp.StatusCode != 200 {
-		logAdd(MessError, "Не получилось получить с сервера VNC: "+fmt.Sprint(err))
+		logAdd(MessError, "Не получилось получить с сервера новую версию: "+fmt.Sprint(err))
 		return false
 	}
 
