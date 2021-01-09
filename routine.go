@@ -294,7 +294,7 @@ func extractZip(arch string, out string) bool {
 		}
 		path := filepath.Join(out, f.Name)
 		if f.FileInfo().IsDir() {
-			_ = os.MkdirAll(path, f.Mode())
+			_ = os.MkdirAll(path, os.ModePerm)
 		} else {
 			writer, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE, f.Mode())
 			if err != nil {
@@ -332,7 +332,7 @@ func getAndExtractVNC(i int) bool {
 	}
 
 	_ = os.MkdirAll(parentPath+VNCFolder+string(os.PathSeparator)+arrayVnc[i].Name+"_"+arrayVnc[i].Version, os.ModePerm)
-	f, err := os.OpenFile(parentPath+VNCFolder+string(os.PathSeparator)+arrayVnc[i].Name+"_"+arrayVnc[i].Version+string(os.PathSeparator)+"tmp.zip", os.O_CREATE, 0)
+	f, err := os.OpenFile(parentPath+VNCFolder+string(os.PathSeparator)+arrayVnc[i].Name+"_"+arrayVnc[i].Version+string(os.PathSeparator)+"tmp.zip", os.O_CREATE, os.ModePerm)
 	if err != nil {
 		logAdd(MessError, "Не получилось получить с сервера VNC: "+err.Error())
 		return false
@@ -351,6 +351,7 @@ func getAndExtractVNC(i int) bool {
 		logAdd(MessError, "Не получилось записать ответ с сервера VNC: "+err.Error())
 		return false
 	}
+	_ = f.Close()
 
 	logAdd(MessInfo, "Получили архив с "+arrayVnc[i].Name+" "+arrayVnc[i].Version)
 
