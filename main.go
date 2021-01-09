@@ -15,7 +15,7 @@ func main() {
 
 	parentPath, _ = filepath.Abs(filepath.Dir(os.Args[0]))
 	parentPath = parentPath + string(os.PathSeparator)
-	os.Chdir(parentPath)
+	_ = os.Chdir(parentPath)
 
 	numCPU := runtime.NumCPU()
 	runtime.GOMAXPROCS(numCPU)
@@ -29,7 +29,7 @@ func main() {
 	debug := flag.Bool("debug", false, "debug flag")
 	flag.Parse()
 
-	logAdd(MESS_INFO, "Запустился коммуникатор reVisit версии "+REVISIT_VERSION)
+	logAdd(MessInfo, "Запустился коммуникатор reVisit версии "+RevisitVersion)
 
 	if !loadOptions() { //пробуем загрузить настройки, если они есть
 		defaultOptions()
@@ -51,7 +51,7 @@ func main() {
 		options.FDebug = true
 	}
 	if *clean {
-		logAdd(MESS_INFO, "Пробуем удалить reVisit")
+		logAdd(MessInfo, "Пробуем удалить reVisit")
 		loadListVNC()
 		closeAllVNC()
 		_, myName := filepath.Split(os.Args[0])
@@ -64,7 +64,7 @@ func main() {
 		return
 	}
 	if *closeFlag {
-		logAdd(MESS_INFO, "Пробуем закрыть все процессы reVisit")
+		logAdd(MessInfo, "Пробуем закрыть все процессы reVisit")
 		loadListVNC()
 		closeAllVNC()
 		_, myName := filepath.Split(os.Args[0])
@@ -92,9 +92,9 @@ func main() {
 	killSignal := <-interrupt
 	switch killSignal {
 	case os.Interrupt:
-		logAdd(MESS_INFO, "got SIGINT...")
+		logAdd(MessInfo, "got SIGINT...")
 	case syscall.SIGTERM:
-		logAdd(MESS_INFO, "got SIGTERM...")
+		logAdd(MessInfo, "got SIGTERM...")
 	}
 
 	terminateMe(true)

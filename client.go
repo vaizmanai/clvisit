@@ -28,9 +28,8 @@ var (
 
 func takeQ() bool {
 	for qCount > qLimit {
-		logAdd(MESS_ERROR, "queue is full")
+		logAdd(MessError, "queue is full")
 		time.Sleep(time.Millisecond * 100)
-		//return false
 	}
 	mutex.Lock()
 	defer mutex.Unlock()
@@ -46,7 +45,7 @@ func backQ() {
 
 func recoverMainClient(conn *net.Conn) {
 	if recover() != nil {
-		logAdd(MESS_ERROR, "Поток mainClient поймал критическую ошибку")
+		logAdd(MessError, "Поток mainClient поймал критическую ошибку")
 		debug.PrintStack()
 
 		if conn != nil {
@@ -62,30 +61,30 @@ func mainClient() {
 	go ping()
 
 	for !flagReload {
-		logAdd(MESS_INFO, "mainClient пробует подключиться к "+options.MainServerAdr)
-		sendMessageToLocalCons(TMESS_LOCAL_INFO_HIDE, "1")
+		logAdd(MessInfo, "mainClient пробует подключиться к "+options.MainServerAdr)
+		sendMessageToLocalCons(TMessLocalInfoHide, "1")
 
 		if len(options.Proxy) > 0 {
 
 			proxy.RegisterDialerType("http", newHTTPProxy)
 			httpProxyURI, err := url.Parse("http://" + options.Proxy)
 			if err != nil {
-				logAdd(MESS_ERROR, "mainClient не смог использовать proxy-строку: "+fmt.Sprint(err))
+				logAdd(MessError, "mainClient не смог использовать proxy-строку: "+fmt.Sprint(err))
 			}
 
 			dialer, err := proxy.FromURL(httpProxyURI, &net.Dialer{
-				Timeout:   PROXY_TIMEOUT * time.Second,
-				KeepAlive: PROXY_TIMEOUT * time.Second,
+				Timeout:   ProxyTimeout * time.Second,
+				KeepAlive: ProxyTimeout * time.Second,
 			})
 			if err != nil {
-				logAdd(MESS_ERROR, "mainClient не смог подключиться к proxy: "+fmt.Sprint(err))
+				logAdd(MessError, "mainClient не смог подключиться к proxy: "+fmt.Sprint(err))
 				time.Sleep(time.Second * 1)
 				continue
 			}
 
 			conn, err := dialer.Dial("tcp", options.MainServerAdr+":"+options.MainServerPort)
 			if err != nil {
-				logAdd(MESS_ERROR, "mainClient не смог подключиться: "+fmt.Sprint(err))
+				logAdd(MessError, "mainClient не смог подключиться: "+fmt.Sprint(err))
 				time.Sleep(time.Second * 1)
 				continue
 			}
@@ -93,7 +92,7 @@ func mainClient() {
 		} else {
 			conn, err := net.Dial("tcp", options.MainServerAdr+":"+options.MainServerPort)
 			if err != nil {
-				logAdd(MESS_ERROR, "mainClient не смог подключиться: "+fmt.Sprint(err))
+				logAdd(MessError, "mainClient не смог подключиться: "+fmt.Sprint(err))
 				time.Sleep(time.Second * 1)
 				continue
 			}
@@ -101,15 +100,15 @@ func mainClient() {
 		}
 
 		//отправим свою версию
-		myClient.Version = REVISIT_VERSION
-		sendMessage(TMESS_VERSION, myClient.Version)
+		myClient.Version = RevisitVersion
+		sendMessage(TMessVersion, myClient.Version)
 
 		//отправим свой идентификатор
 		myClient.Serial = getMac()
-		sendMessage(TMESS_AUTH, myClient.Serial)
+		sendMessage(TMessAuth, myClient.Serial)
 
-		sendMessage(TMESS_SERVERS)
-		sendMessageToLocalCons(TMESS_LOCAL_INFO_HIDE, "0")
+		sendMessage(TMessServers)
+		sendMessageToLocalCons(TMessLocalInfoHide, "0")
 
 		reader := bufio.NewReader(*myClient.Conn)
 
@@ -117,17 +116,17 @@ func mainClient() {
 			buff, err := reader.ReadBytes('}')
 
 			if err != nil {
-				logAdd(MESS_ERROR, "mainClient ошибка чтения буфера: "+fmt.Sprint(err))
+				logAdd(MessError, "mainClient ошибка чтения буфера: "+fmt.Sprint(err))
 				break
 			}
 
-			logAdd(MESS_DETAIL, fmt.Sprint("buff ("+strconv.Itoa(len(buff))+"): "+string(buff)))
+			logAdd(MessDetail, fmt.Sprint("buff ("+strconv.Itoa(len(buff))+"): "+string(buff)))
 
 			//удаляем мусор
 			if buff[0] != '{' {
-				logAdd(MESS_INFO, "mainServer удаляем мусор")
+				logAdd(MessInfo, "mainServer удаляем мусор")
 				if bytes.Index(buff, []byte("{")) >= 0 {
-					logAdd(MESS_DETAIL, fmt.Sprint("buff ("+strconv.Itoa(len(buff))+"): "+string(buff)))
+					logAdd(MessDetail, fmt.Sprint("buff ("+strconv.Itoa(len(buff))+"): "+string(buff)))
 					buff = buff[bytes.Index(buff, []byte("{")):]
 				} else {
 					continue
@@ -137,37 +136,38 @@ func mainClient() {
 			var message Message
 			err = json.Unmarshal(buff, &message)
 			if err != nil {
-				logAdd(MESS_ERROR, "mainClient ошибка разбора json: "+fmt.Sprint(err))
-				time.Sleep(time.Millisecond * WAIT_IDLE)
+				logAdd(MessError, "mainClient ошибка разбора json: "+fmt.Sprint(err))
+				time.Sleep(time.Millisecond * WaitIdle)
 				continue
 			}
 
-			logAdd(MESS_DETAIL, fmt.Sprint(message))
+			logAdd(MessDetail, fmt.Sprint(message))
 
 			//обрабатываем полученное сообщение
 			if len(processing) > message.TMessage {
 				if processing[message.TMessage].Processing != nil {
 					if takeQ() {
 						go func() {
+							//todo давай-ка мы тут таймаут какой-то добавим
 							processing[message.TMessage].Processing(message, myClient.Conn)
 							backQ()
 						}()
 					}
 				} else {
-					logAdd(MESS_INFO, "mainClient нет обработчика для сообщения")
-					time.Sleep(time.Millisecond * WAIT_IDLE)
+					logAdd(MessInfo, "mainClient нет обработчика для сообщения")
+					time.Sleep(time.Millisecond * WaitIdle)
 				}
 			} else {
-				logAdd(MESS_INFO, "mainClient неизвестное сообщение")
-				time.Sleep(time.Millisecond * WAIT_IDLE)
+				logAdd(MessInfo, "mainClient неизвестное сообщение")
+				time.Sleep(time.Millisecond * WaitIdle)
 			}
 
 		}
 
-		sendMessageToLocalCons(TMESS_LOCAL_LOGOUT)
+		sendMessageToLocalCons(TMessLocalLogout)
 
-		logAdd(MESS_INFO, "mainClient остановился")
-		(*myClient.Conn).Close()
+		logAdd(MessInfo, "mainClient остановился")
+		_ = (*myClient.Conn).Close()
 		myClient.Conn = nil
 
 		time.Sleep(time.Second * 1)
@@ -176,16 +176,13 @@ func mainClient() {
 
 func localServer() {
 	count := 0
-	for count < WAIT_COUNT_RESTART_SRV && !flagReload {
-		logAdd(MESS_INFO, "localServer запустился")
+	for count < WaitCountRestartSrv && !flagReload {
+		logAdd(MessInfo, "localServer запустился")
 
 		ln, err := net.Listen("tcp", options.LocalServerAdr+":"+options.LocalServerPort)
 		if err != nil {
-			logAdd(MESS_ERROR, "localServer не смог занять порт: "+fmt.Sprint(err))
-			os.Exit(1) //todo наверное оставим так
-			time.Sleep(time.Millisecond * WAIT_IDLE)
-			count++
-			continue
+			logAdd(MessError, "localServer не смог занять порт: "+fmt.Sprint(err))
+			panic(err.Error())
 		}
 
 		myClient.LocalServ = &ln
@@ -193,34 +190,34 @@ func localServer() {
 		for {
 			conn, err := ln.Accept()
 			if err != nil {
-				logAdd(MESS_ERROR, "localServer не смог занять сокет: "+fmt.Sprint(err))
+				logAdd(MessError, "localServer не смог занять сокет: "+fmt.Sprint(err))
 				break
 			}
 			go localHandler(&conn)
 		}
 
-		ln.Close()
-		logAdd(MESS_INFO, "localServer остановился")
-		time.Sleep(time.Millisecond * WAIT_IDLE)
+		_ = ln.Close()
+		logAdd(MessInfo, "localServer остановился")
+		time.Sleep(time.Millisecond * WaitIdle)
 		count++
 	}
 
 	if !flagReload {
-		logAdd(MESS_ERROR, "localServer так и не смог запуститься")
+		logAdd(MessError, "localServer так и не смог запуститься")
 		os.Exit(1)
 	}
 }
 
 func localHandler(conn *net.Conn) {
 	id := randomString(6)
-	logAdd(MESS_INFO, id+" localServer получил соединение")
+	logAdd(MessInfo, id+" localServer получил соединение")
 
 	item := localConnections.PushBack(conn)
 
-	processLocalInfo(createMessage(TMESS_LOCAL_INFO), conn)
-	processLocalInfoClient(createMessage(TMESS_LOCAL_INFO_CLIENT), conn)
+	processLocalInfo(createMessage(TMessLocalInfo), conn)
+	processLocalInfoClient(createMessage(TMessLocalInfoClient), conn)
 	if len(options.OptionsUI) > 0 {
-		processLocalOptionsUI(createMessage(TMESS_LOCAL_OPTIONS_UI), conn)
+		processLocalOptionsUI(createMessage(TMessLocalOptionsUi), conn)
 	}
 
 	reader := bufio.NewReader(*conn)
@@ -229,15 +226,15 @@ func localHandler(conn *net.Conn) {
 		buff, err := reader.ReadBytes('}')
 
 		if err != nil {
-			logAdd(MESS_ERROR, id+" localServer ошибка чтения буфера: "+fmt.Sprint(err))
+			logAdd(MessError, id+" localServer ошибка чтения буфера: "+fmt.Sprint(err))
 			break
 		}
 
-		logAdd(MESS_DETAIL, id+fmt.Sprint(" buff ("+strconv.Itoa(len(buff))+"): "+string(buff)))
+		logAdd(MessDetail, id+fmt.Sprint(" buff ("+strconv.Itoa(len(buff))+"): "+string(buff)))
 
 		//удаляем мусор
 		if buff[0] != '{' {
-			logAdd(MESS_INFO, id+" localServer удаляем мусор")
+			logAdd(MessInfo, id+" localServer удаляем мусор")
 			if bytes.Index(buff, []byte("{")) >= 0 {
 				buff = buff[bytes.Index(buff, []byte("{")):]
 			} else {
@@ -248,50 +245,48 @@ func localHandler(conn *net.Conn) {
 		var message Message
 		err = json.Unmarshal(buff, &message)
 		if err != nil {
-			logAdd(MESS_ERROR, id+" localServer ошибка разбора json: "+fmt.Sprint(err))
-			time.Sleep(time.Millisecond * WAIT_IDLE)
+			logAdd(MessError, id+" localServer ошибка разбора json: "+fmt.Sprint(err))
+			time.Sleep(time.Millisecond * WaitIdle)
 			continue
 		}
 
-		logAdd(MESS_DETAIL, id+" "+fmt.Sprint(message))
+		logAdd(MessDetail, id+" "+fmt.Sprint(message))
 
 		//обрабатываем полученное сообщение
 		if len(localProcessing) > message.TMessage {
 			if localProcessing[message.TMessage].Processing != nil {
 				if takeQ() {
 					go func() {
+						//todo давай-ка мы тут таймаут какой-то добавим
 						localProcessing[message.TMessage].Processing(message, conn)
 						backQ()
 					}()
 				}
 			} else {
-				logAdd(MESS_INFO, fmt.Sprintf("%s localServer нет обработчика для сообщения", id))
-				time.Sleep(time.Millisecond * WAIT_IDLE)
+				logAdd(MessInfo, fmt.Sprintf("%s localServer нет обработчика для сообщения", id))
+				time.Sleep(time.Millisecond * WaitIdle)
 			}
 		} else {
-			logAdd(MESS_INFO, fmt.Sprintf("%s localServer неизвестное сообщение", id))
-			time.Sleep(time.Millisecond * WAIT_IDLE)
+			logAdd(MessInfo, fmt.Sprintf("%s localServer неизвестное сообщение", id))
+			time.Sleep(time.Millisecond * WaitIdle)
 		}
 
 	}
 
 	localConnections.Remove(item)
 	_ = (*conn).Close()
-	logAdd(MESS_INFO, id+" localServer потерял соединение")
+	logAdd(MessInfo, id+" localServer потерял соединение")
 }
 
 func localDataServer() {
 	count := 0
-	for count < WAIT_COUNT_RESTART_SRV && !flagReload {
-		logAdd(MESS_INFO, "localDataServer запустился")
+	for count < WaitCountRestartSrv && !flagReload {
+		logAdd(MessInfo, "localDataServer запустился")
 
 		ln, err := net.Listen("tcp", options.LocalAdrVNC+":"+options.PortClientVNC)
 		if err != nil {
-			logAdd(MESS_ERROR, "localDataServer не смог занять порт: "+fmt.Sprint(err))
-			os.Exit(1) //todo наверное оставим так
-			time.Sleep(time.Millisecond * WAIT_IDLE)
-			count++
-			continue
+			logAdd(MessError, "localDataServer не смог занять порт: "+fmt.Sprint(err))
+			panic(err.Error())
 		}
 
 		myClient.DataServ = &ln
@@ -299,38 +294,38 @@ func localDataServer() {
 		for {
 			conn, err := ln.Accept()
 			if err != nil {
-				logAdd(MESS_ERROR, "localDataServer не смог занять сокет: "+fmt.Sprint(err))
+				logAdd(MessError, "localDataServer не смог занять сокет: "+fmt.Sprint(err))
 				break
 			}
 			go localDataHandler(&conn)
 		}
 
-		ln.Close()
-		logAdd(MESS_INFO, "localDataServer остановился")
-		time.Sleep(time.Millisecond * WAIT_IDLE)
+		_ = ln.Close()
+		logAdd(MessInfo, "localDataServer остановился")
+		time.Sleep(time.Millisecond * WaitIdle)
 		count++
 	}
 
 	if !flagReload {
-		logAdd(MESS_ERROR, "localDataServer так и не смог запуститься")
+		logAdd(MessError, "localDataServer так и не смог запуститься")
 		os.Exit(1)
 	}
 }
 
 func localDataHandler(conn *net.Conn) {
 	id := randomString(6)
-	logAdd(MESS_INFO, id+" localDataHandler получил соединение")
+	logAdd(MessInfo, id+" localDataHandler получил соединение")
 
 	var cWait = 0
-	for (peerBuff1 == nil || peerBuff2 == nil) && cWait < WAIT_COUNT {
-		logAdd(MESS_INFO, id+" ожидание peer для локального сервера...")
-		time.Sleep(time.Millisecond * WAIT_IDLE)
+	for (peerBuff1 == nil || peerBuff2 == nil) && cWait < WaitCount {
+		logAdd(MessInfo, id+" ожидание peer для локального сервера...")
+		time.Sleep(time.Millisecond * WaitIdle)
 		cWait++
 	}
 
 	if peerBuff1 == nil || peerBuff2 == nil {
-		(*conn).Close()
-		logAdd(MESS_INFO, id+" не дождались peer")
+		_ = (*conn).Close()
+		logAdd(MessInfo, id+" не дождались peer")
 		return
 	}
 
@@ -343,20 +338,20 @@ func localDataHandler(conn *net.Conn) {
 	peer1.Pointer = conn
 
 	cWait = 0
-	for peer2.Pointer == nil && cWait < WAIT_COUNT && !flagTerminated {
-		logAdd(MESS_INFO, id+" ожидание peer для локального сервера...")
-		time.Sleep(time.Millisecond * WAIT_IDLE)
+	for peer2.Pointer == nil && cWait < WaitCount && !flagTerminated {
+		logAdd(MessInfo, id+" ожидание peer для локального сервера...")
+		time.Sleep(time.Millisecond * WaitIdle)
 		cWait++
 	}
 
 	if peer2.Pointer == nil {
-		(*conn).Close()
-		logAdd(MESS_INFO, id+" не дождались peer")
+		_ = (*conn).Close()
+		logAdd(MessInfo, id+" не дождались peer")
 		return
 	}
 
-	logAdd(MESS_INFO, id+" peer существует для локального сервера")
-	time.Sleep(time.Millisecond * WAIT_AFTER_CONNECT)
+	logAdd(MessInfo, id+" peer существует для локального сервера")
+	time.Sleep(time.Millisecond * WaitAfterConnect)
 
 	var z []byte
 	z = make([]byte, options.SizeBuff)
@@ -367,14 +362,14 @@ func localDataHandler(conn *net.Conn) {
 		n2, err2 := (*peer2.Pointer).Write(z[:n1])
 		//fmt.Println(id, "server:", z[:n2], err2)
 		if (err1 != nil && err1 != io.EOF) && err2 != nil || n1 == 0 || n2 == 0 {
-			logAdd(MESS_INFO, id+" подключение к локальному серверу отвалилось: "+fmt.Sprint(n1, n2))
-			(*peer2.Pointer).Close()
+			logAdd(MessInfo, id+" подключение к локальному серверу отвалилось: "+fmt.Sprint(n1, n2))
+			_ = (*peer2.Pointer).Close()
 			break
 		}
 	}
 
-	(*conn).Close()
-	logAdd(MESS_INFO, id+" подключение к локальному серверу завершило работу")
+	_ = (*conn).Close()
+	logAdd(MessInfo, id+" подключение к локальному серверу завершило работу")
 }
 
 func hideInfo() {
@@ -383,7 +378,7 @@ func hideInfo() {
 	connections.mutex.Unlock()
 
 	if connections.count > 0 {
-		sendMessageToLocalCons(TMESS_LOCAL_INFO_HIDE, "1")
+		sendMessageToLocalCons(TMessLocalInfoHide, "1")
 	}
 }
 
@@ -393,33 +388,33 @@ func showInfo() {
 	connections.mutex.Unlock()
 
 	if connections.count == 0 {
-		sendMessageToLocalCons(TMESS_LOCAL_INFO_HIDE, "0")
+		sendMessageToLocalCons(TMessLocalInfoHide, "0")
 	}
 }
 
 func startVNC() {
 	if len(arrayVnc) == 0 || options.ActiveVncId == -1 {
-		logAdd(MESS_INFO, "VNC серверы отсутствуют")
+		logAdd(MessInfo, "VNC серверы отсутствуют")
 		return
 	}
 
-	sendMessageToLocalCons(TMESS_LOCAL_INFO_CLIENT, parentPath+VNC_FOLDER+string(os.PathSeparator)+arrayVnc[options.ActiveVncId].Name+"_"+arrayVnc[options.ActiveVncId].Version+string(os.PathSeparator)+strings.Replace(arrayVnc[options.ActiveVncId].CmdStartClient, "%adr", options.LocalAdrVNC+":"+options.PortClientVNC, 1))
+	sendMessageToLocalCons(TMessLocalInfoClient, parentPath+VNCFolder+string(os.PathSeparator)+arrayVnc[options.ActiveVncId].Name+"_"+arrayVnc[options.ActiveVncId].Version+string(os.PathSeparator)+strings.Replace(arrayVnc[options.ActiveVncId].CmdStartClient, "%adr", options.LocalAdrVNC+":"+options.PortClientVNC, 1))
 
-	logAdd(MESS_INFO, "Готовим VNC сервер для запуска")
+	logAdd(MessInfo, "Готовим VNC сервер для запуска")
 	if !checkForAdmin() {
-		logAdd(MESS_INFO, "У нас нет прав Администратора, запускаем обычную версию VNC сервера")
+		logAdd(MessInfo, "У нас нет прав Администратора, запускаем обычную версию VNC сервера")
 
-		if configVNCserverUser() {
-			if installVNCserverUser() {
-				go runVNCserverUser()
+		if configVNCServerUser() {
+			if installVNCServerUser() {
+				go runVNCServerUser()
 			}
 		}
 	} else {
-		logAdd(MESS_INFO, "У нас есть права Администратора, запускаем службу для VNC сервера")
+		logAdd(MessInfo, "У нас есть права Администратора, запускаем службу для VNC сервера")
 
-		if configVNCserver() {
-			if installVNCserver() {
-				go runVNCserver()
+		if configVNCServer() {
+			if installVNCServer() {
+				go runVNCServer()
 			}
 		}
 	}
@@ -428,21 +423,21 @@ func startVNC() {
 
 func closeVNC() {
 	if len(arrayVnc) == 0 || options.ActiveVncId == -1 {
-		logAdd(MESS_INFO, "VNC серверы отсутствуют")
+		logAdd(MessInfo, "VNC серверы отсутствуют")
 		return
 	}
 
 	if !checkForAdmin() {
-		logAdd(MESS_INFO, "У нас нет прав Администратора")
+		logAdd(MessInfo, "У нас нет прав Администратора")
 
-		if stopVNCserverUser() {
-			uninstallVNCserverUser()
+		if stopVNCServerUser() {
+			uninstallVNCServerUser()
 		}
 	} else {
-		logAdd(MESS_INFO, "У нас есть права Администратора")
+		logAdd(MessInfo, "У нас есть права Администратора")
 
-		if stopVNCserver() {
-			uninstallVNCserver()
+		if stopVNCServer() {
+			uninstallVNCServer()
 		}
 	}
 
@@ -450,145 +445,145 @@ func closeVNC() {
 	emergencyExitVNC(options.ActiveVncId)
 }
 
-func configVNCserver() bool {
-	logAdd(MESS_INFO, "Импортируем настройки сервера")
+func configVNCServer() bool {
+	logAdd(MessInfo, "Импортируем настройки сервера")
 
 	if !actVNC(arrayVnc[options.ActiveVncId].CmdConfigServer) {
-		logAdd(MESS_ERROR, "Не получилось импортировать настройки")
+		logAdd(MessError, "Не получилось импортировать настройки")
 		return true //todo change to false
 	}
 
-	logAdd(MESS_INFO, "Импортировали настройки сервера")
+	logAdd(MessInfo, "Импортировали настройки сервера")
 	return true
 }
 
-func installVNCserver() bool {
-	logAdd(MESS_INFO, "Устанавливаем VNC сервер")
+func installVNCServer() bool {
+	logAdd(MessInfo, "Устанавливаем VNC сервер")
 
 	if !actVNC(arrayVnc[options.ActiveVncId].CmdInstallServer) {
-		logAdd(MESS_ERROR, "Не получилось установить VNC сервер")
+		logAdd(MessError, "Не получилось установить VNC сервер")
 		return true //todo change to false
 	}
-	logAdd(MESS_INFO, "Установили VNC сервер")
+	logAdd(MessInfo, "Установили VNC сервер")
 	return true
 }
 
-func runVNCserver() bool {
-	logAdd(MESS_INFO, "Запускаем VNC сервер")
+func runVNCServer() bool {
+	logAdd(MessInfo, "Запускаем VNC сервер")
 
 	_, pid := checkExistsProcess(arrayVnc[options.ActiveVncId].FileServer)
 	if pid != 0 {
-		logAdd(MESS_INFO, "VNC сервер уже запущен")
+		logAdd(MessInfo, "VNC сервер уже запущен")
 		return true
 	}
 
-	os.Chdir(parentPath + VNC_FOLDER + string(os.PathSeparator) + arrayVnc[options.ActiveVncId].Name + "_" + arrayVnc[options.ActiveVncId].Version + string(os.PathSeparator))
+	_ = os.Chdir(parentPath + VNCFolder + string(os.PathSeparator) + arrayVnc[options.ActiveVncId].Name + "_" + arrayVnc[options.ActiveVncId].Version + string(os.PathSeparator))
 	if !actVNC(arrayVnc[options.ActiveVncId].CmdStartServer) {
-		logAdd(MESS_ERROR, "Не получилось запустить VNC сервер")
+		logAdd(MessError, "Не получилось запустить VNC сервер")
 		return false
 	}
-	logAdd(MESS_INFO, "Запустился VNC сервер")
+	logAdd(MessInfo, "Запустился VNC сервер")
 	return true
 }
 
-func stopVNCserver() bool {
-	logAdd(MESS_INFO, "Останавливаем VNC сервер")
+func stopVNCServer() bool {
+	logAdd(MessInfo, "Останавливаем VNC сервер")
 
 	if !actVNC(arrayVnc[options.ActiveVncId].CmdStopServer) {
-		logAdd(MESS_ERROR, "Не получилось установить VNC сервер")
+		logAdd(MessError, "Не получилось установить VNC сервер")
 		return true //todo change to false
 	}
-	logAdd(MESS_INFO, "Остановили VNC сервер")
+	logAdd(MessInfo, "Остановили VNC сервер")
 	return true
 }
 
-func uninstallVNCserver() bool {
-	logAdd(MESS_INFO, "Удаляем VNC сервер")
+func uninstallVNCServer() bool {
+	logAdd(MessInfo, "Удаляем VNC сервер")
 
 	if !actVNC(arrayVnc[options.ActiveVncId].CmdRemoveServer) {
-		logAdd(MESS_ERROR, "Не получилось запустить VNC сервер")
+		logAdd(MessError, "Не получилось запустить VNC сервер")
 		return false
 	}
-	logAdd(MESS_INFO, "Удалили VNC сервер")
+	logAdd(MessInfo, "Удалили VNC сервер")
 	return true
 }
 
-func configVNCserverUser() bool {
-	logAdd(MESS_INFO, "Импортируем настройки сервера")
+func configVNCServerUser() bool {
+	logAdd(MessInfo, "Импортируем настройки сервера")
 
 	if !actVNC(arrayVnc[options.ActiveVncId].CmdConfigServerUser) {
-		logAdd(MESS_ERROR, "Не получилось импортировать настройки")
+		logAdd(MessError, "Не получилось импортировать настройки")
 		return true //todo change to false
 	}
 
-	logAdd(MESS_INFO, "Импортировали настройки сервера")
+	logAdd(MessInfo, "Импортировали настройки сервера")
 	return true
 }
 
-func installVNCserverUser() bool {
-	logAdd(MESS_INFO, "Устанавливаем VNC сервер")
+func installVNCServerUser() bool {
+	logAdd(MessInfo, "Устанавливаем VNC сервер")
 
 	if !actVNC(arrayVnc[options.ActiveVncId].CmdInstallServerUser) {
-		logAdd(MESS_ERROR, "Не получилось установить VNC сервер")
+		logAdd(MessError, "Не получилось установить VNC сервер")
 		return true //todo change to false
 	}
-	logAdd(MESS_INFO, "Установили VNC сервер")
+	logAdd(MessInfo, "Установили VNC сервер")
 	return true
 }
 
-func runVNCserverUser() bool {
-	logAdd(MESS_INFO, "Запускаем VNC сервер")
+func runVNCServerUser() bool {
+	logAdd(MessInfo, "Запускаем VNC сервер")
 
 	_, pid := checkExistsProcess(arrayVnc[options.ActiveVncId].FileServer)
 	if pid != 0 {
-		logAdd(MESS_INFO, "VNC сервер уже запущен")
+		logAdd(MessInfo, "VNC сервер уже запущен")
 		return true
 	}
 
 	if !actVNC(arrayVnc[options.ActiveVncId].CmdStartServerUser) {
-		logAdd(MESS_ERROR, "Не получилось запустить VNC сервер")
+		logAdd(MessError, "Не получилось запустить VNC сервер")
 		return false
 	}
-	logAdd(MESS_INFO, "Завершился VNC сервер")
+	logAdd(MessInfo, "Завершился VNC сервер")
 	return true
 }
 
-func stopVNCserverUser() bool {
-	logAdd(MESS_INFO, "Останавливаем VNC сервер")
+func stopVNCServerUser() bool {
+	logAdd(MessInfo, "Останавливаем VNC сервер")
 
 	if !actVNC(arrayVnc[options.ActiveVncId].CmdStopServerUser) {
-		logAdd(MESS_ERROR, "Не получилось установить VNC сервер")
+		logAdd(MessError, "Не получилось установить VNC сервер")
 		return true //todo change to false
 	}
-	logAdd(MESS_INFO, "Остановили VNC сервер")
+	logAdd(MessInfo, "Остановили VNC сервер")
 	return true
 }
 
-func uninstallVNCserverUser() bool {
-	logAdd(MESS_INFO, "Удаляем VNC сервер")
+func uninstallVNCServerUser() bool {
+	logAdd(MessInfo, "Удаляем VNC сервер")
 
 	if !actVNC(arrayVnc[options.ActiveVncId].CmdRemoveServerUser) {
-		logAdd(MESS_ERROR, "Не получилось запустить VNC сервер")
+		logAdd(MessError, "Не получилось запустить VNC сервер")
 		return false
 	}
-	logAdd(MESS_INFO, "Удалили VNC сервер")
+	logAdd(MessInfo, "Удалили VNC сервер")
 	return true
 }
 
 func ping() {
-	logAdd(MESS_DETAIL, "Запустили поток пинга")
+	logAdd(MessDetail, "Запустили поток пинга")
 	for true {
-		time.Sleep(time.Second * WAIT_PING)
-		sendMessage(TMESS_PING)
+		time.Sleep(time.Second * WaitPing)
+		sendMessage(TMessPing)
 	}
-	logAdd(MESS_DETAIL, "Остановили поток пинга")
+	logAdd(MessDetail, "Остановили поток пинга")
 }
 
 //пир1 в сторону сервера/клиента(если напрямую)
 //пир2 в сторону vnc(server/viewer)
-func convisit(peerAdr1 string, peerAdr2 string, code string, upnp bool, mode int) {
+func connectVisit(peerAdr1 string, peerAdr2 string, code string, upnp bool, mode int) {
 
-	logAdd(MESS_INFO, "Запустили поток подключения трансляции")
+	logAdd(MessInfo, "Запустили поток подключения трансляции")
 
 	//режимы работы коннектора
 	//пир1 всегда в сторону сервера/клиента(если напрямую)
@@ -604,36 +599,36 @@ func convisit(peerAdr1 string, peerAdr2 string, code string, upnp bool, mode int
 	peer2.Pointer = nil
 
 	if mode == 1 {
-		go conclient(peerAdr1, code, &peer1, &peer2, randomString(6))
-		go conclient(peerAdr2, "", &peer2, &peer1, randomString(6))
+		go connectClient(peerAdr1, code, &peer1, &peer2, randomString(6))
+		go connectClient(peerAdr2, "", &peer2, &peer1, randomString(6))
 	} else if mode == 2 {
-		go conclient(peerAdr1, code, &peer1, &peer2, randomString(6))
-		go conserver(peerAdr2, "", &peer2, &peer1, randomString(6))
+		go connectClient(peerAdr1, code, &peer1, &peer2, randomString(6))
+		go connectServer(peerAdr2, "", &peer2, &peer1, randomString(6))
 	} else if mode == 3 {
-		go conserver(peerAdr1, code, &peer1, &peer2, randomString(6))
-		go conclient(peerAdr2, "", &peer2, &peer1, randomString(6))
+		go connectServer(peerAdr1, code, &peer1, &peer2, randomString(6))
+		go connectClient(peerAdr2, "", &peer2, &peer1, randomString(6))
 	} else if mode == 4 {
-		go conserver(peerAdr1, code, &peer1, &peer2, randomString(6))
-		go conserver(peerAdr2, "", &peer2, &peer1, randomString(6))
+		go connectServer(peerAdr1, code, &peer1, &peer2, randomString(6))
+		go connectServer(peerAdr2, "", &peer2, &peer1, randomString(6))
 	}
 
 }
 
-func conserver(adr string, code string, peer1 *pConn, peer2 *pConn, id string) {
+func connectServer(adr string, code string, peer1 *pConn, peer2 *pConn, id string) {
 	peerBuff1 = peer1
 	peerBuff2 = peer2
 }
 
-func conclient(adr string, code string, peer1 *pConn, peer2 *pConn, id string) {
+func connectClient(adr string, code string, peer1 *pConn, peer2 *pConn, id string) {
 
-	logAdd(MESS_INFO, id+" запустили клиента "+code+" к "+adr)
+	logAdd(MessInfo, id+" запустили клиента "+code+" к "+adr)
 	if len(options.Proxy) > 0 && len(code) > 0 { //если прокси указан и это не локальное подключение
 
 		proxy.RegisterDialerType("http", newHTTPProxy)
 		httpProxyURI, err := url.Parse("http://" + options.Proxy)
 		if err != nil {
-			sendMessage(TMESS_DISCONNECT, code, fmt.Sprint(STATIC_MESSAGE_PROXY_ERROR))
-			logAdd(MESS_ERROR, "mainClient не смог использовать proxy-строку: "+fmt.Sprint(err))
+			sendMessage(TMessDisconnect, code, fmt.Sprint(StaticMessageProxyError))
+			logAdd(MessError, "mainClient не смог использовать proxy-строку: "+fmt.Sprint(err))
 			return
 		}
 
@@ -642,15 +637,15 @@ func conclient(adr string, code string, peer1 *pConn, peer2 *pConn, id string) {
 			KeepAlive: 30 * time.Second,
 		})
 		if err != nil {
-			logAdd(MESS_ERROR, id+" не смог подключиться к proxy "+fmt.Sprint(err))
-			sendMessage(TMESS_DISCONNECT, code, fmt.Sprint(STATIC_MESSAGE_PROXY_ERROR))
+			logAdd(MessError, id+" не смог подключиться к proxy "+fmt.Sprint(err))
+			sendMessage(TMessDisconnect, code, fmt.Sprint(StaticMessageProxyError))
 			return
 		}
 
 		conn, err := dialer.Dial("tcp", adr)
 		if err != nil {
-			logAdd(MESS_ERROR, id+" не смог подключиться: "+fmt.Sprint(err))
-			sendMessage(TMESS_DISCONNECT, code, fmt.Sprint(STATIC_MESSAGE_PROXY_ERROR))
+			logAdd(MessError, id+" не смог подключиться: "+fmt.Sprint(err))
+			sendMessage(TMessDisconnect, code, fmt.Sprint(StaticMessageProxyError))
 			return
 		}
 
@@ -659,9 +654,9 @@ func conclient(adr string, code string, peer1 *pConn, peer2 *pConn, id string) {
 	} else {
 		conn, err := net.Dial("tcp", adr)
 		if err != nil {
-			logAdd(MESS_ERROR, id+" не удалось клиенту подключиться: "+fmt.Sprint(err))
+			logAdd(MessError, id+" не удалось клиенту подключиться: "+fmt.Sprint(err))
 			if len(code) > 0 {
-				sendMessage(TMESS_DISCONNECT, code, fmt.Sprint(STATIC_MESSAGE_NETWORK_ERROR))
+				sendMessage(TMessDisconnect, code, fmt.Sprint(StaticMessageNetworkError))
 			}
 			return
 		}
@@ -671,29 +666,29 @@ func conclient(adr string, code string, peer1 *pConn, peer2 *pConn, id string) {
 	}
 
 	if len(code) > 0 {
-		(*peer1.Pointer).Write([]byte(code + "\n"))
+		_, _ = (*peer1.Pointer).Write([]byte(code + "\n"))
 		hideInfo()
 		defer showInfo()
 	}
 
 	var cWait = 0
-	for peer2.Pointer == nil && cWait < WAIT_COUNT {
-		logAdd(MESS_INFO, id+" ожидаем peer для клиента...")
-		time.Sleep(time.Millisecond * WAIT_IDLE)
+	for peer2.Pointer == nil && cWait < WaitCount {
+		logAdd(MessInfo, id+" ожидаем peer для клиента...")
+		time.Sleep(time.Millisecond * WaitIdle)
 		cWait++
 	}
 	if peer2.Pointer == nil {
-		logAdd(MESS_ERROR, id+" превышено время ожидания")
+		logAdd(MessError, id+" превышено время ожидания")
 		if len(code) > 0 {
-			sendMessage(TMESS_DISCONNECT, code, fmt.Sprint(STATIC_MESSAGE_TIMEOUT_ERROR))
+			sendMessage(TMessDisconnect, code, fmt.Sprint(StaticMessageTimeoutError))
 		}
-		sendMessageToLocalCons(TMESS_LOCAL_STANDART_ALERT, fmt.Sprint(STATIC_MESSAGE_LOCAL_ERROR))
+		sendMessageToLocalCons(TMessLocalStandartAlert, fmt.Sprint(StaticMessageLocalError))
 		return
 	}
 
-	sendMessageToLocalCons(TMESS_LOCAL_STANDART_ALERT, fmt.Sprint(STATIC_MESSAGE_LOCAL_CONN))
-	logAdd(MESS_INFO, id+" peer существует для клиента")
-	time.Sleep(time.Millisecond * WAIT_AFTER_CONNECT)
+	sendMessageToLocalCons(TMessLocalStandartAlert, fmt.Sprint(StaticMessageLocalConn))
+	logAdd(MessInfo, id+" peer существует для клиента")
+	time.Sleep(time.Millisecond * WaitAfterConnect)
 
 	var z []byte
 	z = make([]byte, options.SizeBuff)
@@ -702,12 +697,12 @@ func conclient(adr string, code string, peer1 *pConn, peer2 *pConn, id string) {
 		n1, err1 := (*peer1.Pointer).Read(z)
 		n2, err2 := (*peer2.Pointer).Write(z[:n1])
 		if (err1 != nil && err1 != io.EOF) && err2 != nil || n1 == 0 || n2 == 0 {
-			logAdd(MESS_INFO, id+" соединение клиента отвалилось")
-			(*peer2.Pointer).Close()
+			logAdd(MessInfo, id+" соединение клиента отвалилось")
+			_ = (*peer2.Pointer).Close()
 			break
 		}
 	}
 
-	logAdd(MESS_INFO, id+" клиент завершил работу")
-	sendMessageToLocalCons(TMESS_LOCAL_STANDART_ALERT, fmt.Sprint(STATIC_MESSAGE_LOCAL_DISCONN))
+	logAdd(MessInfo, id+" клиент завершил работу")
+	sendMessageToLocalCons(TMessLocalStandartAlert, fmt.Sprint(StaticMessageLocalDisconn))
 }
