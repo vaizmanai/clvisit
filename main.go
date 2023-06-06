@@ -29,7 +29,7 @@ func main() {
 	debug := flag.Bool("debug", false, "debug flag")
 	flag.Parse()
 
-	logAdd(MessInfo, "Запустился коммуникатор reVisit версии "+RevisitVersion)
+	logAdd(MessInfo, "Запустился коммуникатор osgos admin версии "+RevisitVersion)
 	logAdd(MessInfo, "Текущая папка: "+parentPath)
 
 	if !loadOptions() { //пробуем загрузить настройки, если они есть
@@ -52,26 +52,26 @@ func main() {
 		options.FDebug = true
 	}
 	if *clean {
-		logAdd(MessInfo, "Пробуем удалить reVisit")
+		logAdd(MessInfo, "Пробуем удалить OSGOS ADMIN")
 		loadListVNC()
 		closeAllVNC()
 		_, myName := filepath.Split(os.Args[0])
 		closeProcess(myName)
-		closeProcess("reVisit.exe")
-		closeProcess("revisit.exe")
+		closeProcess("admin.exe")
+		closeProcess("admin.exe")
 		_ = os.RemoveAll(parentPath + "vnc")
 		_ = os.Remove("options.cfg")
 		_ = os.Remove("vnc.list")
 		return
 	}
 	if *closeFlag {
-		logAdd(MessInfo, "Пробуем закрыть все процессы reVisit")
+		logAdd(MessInfo, "Пробуем закрыть все процессы OSGOS ADMIN")
 		loadListVNC()
 		closeAllVNC()
 		_, myName := filepath.Split(os.Args[0])
 		closeProcess(myName)
-		closeProcess("reVisit.exe")
-		closeProcess("revisit.exe")
+		closeProcess("admin.exe")
+		closeProcess("admin.exe")
 		return
 	}
 	if *reload {

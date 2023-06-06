@@ -403,6 +403,11 @@ func actVNC(cmd string) bool {
 
 	_ = os.Chdir(parentPath + VNCFolder + string(os.PathSeparator) + arrayVnc[options.ActiveVncId].Name + "_" + arrayVnc[options.ActiveVncId].Version + string(os.PathSeparator))
 
+	curDir, _ := os.Getwd()
+	if !strings.Contains(cmd, "/") {
+		cmd = fmt.Sprintf("%s/%s", curDir, cmd)
+	}
+
 	logAdd(MessDetail, "Выполняем "+cmd)
 	str := strings.Split(cmd, " ")
 	out, err := exec.Command(str[0], str[1:]...).Output()
@@ -468,7 +473,7 @@ func terminateMe(term bool) {
 func updateMe() bool {
 	logAdd(MessError, "Собираемся получить актуальную версию")
 
-	err := os.Remove(parentPath + "revisit_old.exe")
+	err := os.Remove(parentPath + "admin_old.exe")
 	if err != nil {
 		logAdd(MessError, "Не получилось удалить старый временный файл: "+fmt.Sprint(err))
 	}
@@ -477,19 +482,19 @@ func updateMe() bool {
 		logAdd(MessError, "Не получилось удалить старый временный файл: "+fmt.Sprint(err))
 	}
 
-	resp, err := httpClient.Get(options.HttpServerType + "://" + options.HttpServerAdr + ":" + options.HttpServerPort + "/resource/revisit.exe")
+	resp, err := httpClient.Get(options.HttpServerType + "://" + options.HttpServerAdr + ":" + options.HttpServerPort + "/resource/admin.exe")
 	if err != nil || resp.StatusCode != 200 {
 		logAdd(MessError, "Не получилось получить с сервера новую версию: "+fmt.Sprint(err))
 		return false
 	}
 
-	f, err := os.OpenFile(parentPath+"revisit_new.exe", os.O_CREATE, 0)
+	f, err := os.OpenFile(parentPath+"admin_new.exe", os.O_CREATE, 0)
 	if err != nil {
 		logAdd(MessError, "Не получилось создать временный файл: "+err.Error())
 		return false
 	}
 
-	buff, err := ioutil.ReadAll(resp.Body)
+	buff, err := io.ReadAll(resp.Body)
 	if err != nil {
 		logAdd(MessError, "Не получилось прочитать ответ с сервера: "+err.Error())
 		return false
@@ -510,7 +515,7 @@ func updateMe() bool {
 		return false
 	}
 
-	err = os.Rename(parentPath+"revisit.exe", parentPath+"revisit_old.exe")
+	err = os.Rename(parentPath+"admin.exe", parentPath+"admin_old.exe")
 	if err != nil {
 		logAdd(MessError, "Не получилось получить переименовать файл: "+err.Error())
 		err = os.Rename(parentPath+"communicator_old.exe", parentPath+myName)
@@ -522,7 +527,7 @@ func updateMe() bool {
 		return false
 	}
 
-	_, err = exec.Command(parentPath+"revisit_new.exe", "-extract").Output()
+	_, err = exec.Command(parentPath+"admin_new.exe", "-extract").Output()
 	if err != nil {
 		logAdd(MessError, "Не получилось распаковать коммуникатор: "+err.Error())
 		err = os.Rename(parentPath+"communicator_old.exe", parentPath+myName)
@@ -530,7 +535,7 @@ func updateMe() bool {
 			logAdd(MessError, "Не получилось получить откатить файл: "+err.Error())
 			return false
 		}
-		err = os.Rename(parentPath+"revisit_old.exe", parentPath+"revisit.exe")
+		err = os.Rename(parentPath+"admin_old.exe", parentPath+"admin.exe")
 		if err != nil {
 			logAdd(MessError, "Не получилось получить откатить файл: "+err.Error())
 			return false
@@ -539,10 +544,10 @@ func updateMe() bool {
 		return false
 	}
 
-	err = os.Rename(parentPath+"revisit_new.exe", parentPath+"revisit.exe")
+	err = os.Rename(parentPath+"admin_new.exe", parentPath+"admin.exe")
 	if err != nil {
 		logAdd(MessError, "Не получилось переименовать новый клиент, оставим старый: "+err.Error())
-		err = os.Rename(parentPath+"revisit_old.exe", parentPath+"revisit.exe")
+		err = os.Rename(parentPath+"admin_old.exe", parentPath+"admin.exe")
 		if err != nil {
 			logAdd(MessError, "Не получилось получить откатить файл: "+err.Error())
 			return false

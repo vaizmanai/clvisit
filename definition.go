@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	RevisitVersion = "1.08"
+	RevisitVersion = "1.00"
 
 	DefaultMainServerName = "server.rvisit.net"
 	DefaultDataServerName = "data.rvisit.net"
@@ -193,8 +193,7 @@ var (
 
 	//функции для обработки локальных сообщений
 	localProcessing = []ProcessingMessage{
-		20:
-		{TMessLocalTest, processLocalTest}, //20
+		20: {TMessLocalTest, processLocalTest}, //20
 		{TMessLocalInfo, processLocalInfo},
 		{TMessLocalConnect, processLocalConnect},
 		{TMessLocalNotification, nil},
@@ -247,7 +246,7 @@ var (
 	chRefreshAgents chan bool
 )
 
-//структура для хранения конфигурируемых данных
+// структура для хранения конфигурируемых данных
 type Options struct {
 	//реквизиты сервера основного
 	MainServerAdr  string
