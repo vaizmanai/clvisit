@@ -111,10 +111,20 @@ func processConnect(message Message, _ *net.Conn, _ context.Context) {
 	if tconn == "simple" {
 		log.Infof("запускаем простой тип подключения")
 		if ctype == "server" {
-			go connectVisit(fmt.Sprintf("%s:%s", address, common.Options.DataServerPort), fmt.Sprintf("%s:%s", common.Options.LocalAdrVNC, vnc.GetActiveVNC().PortServerVNC), code, false, 1) //тот кто передает трансляцию
+			//тот кто передает трансляцию
+			go connectVisit(fmt.Sprintf("%s:%s", address, common.Options.DataServerPort), fmt.Sprintf("%s:%s", common.Options.LocalAdrVNC, vnc.GetActiveVNC().PortServerVNC), code, false, 1)
 		} else {
-			go connectVisit(fmt.Sprintf("%s:%s", address, common.Options.DataServerPort), fmt.Sprintf("%s:%s", common.Options.LocalAdrVNC, common.Options.PortClientVNC), code, false, 2) //тот кто получает трансляцию
-			sendMessageToSocket(uiClient, TMessLocalExec, fmt.Sprintf("%s%s", vnc.GetActiveFolder(), strings.ReplaceAll(vnc.GetActiveVNC().CmdStartClient, "%adr", common.GetVNCAddress())))
+			//тот кто получает трансляцию
+			go connectVisit(fmt.Sprintf("%s:%s", address, common.Options.DataServerPort), fmt.Sprintf("%s:%s", common.Options.LocalAdrVNC, common.Options.PortClientVNC), code, false, 2)
+
+			if uiClient != nil {
+				//classic ui
+				sendMessageToSocket(uiClient, TMessLocalExec, fmt.Sprintf("%s%s", vnc.GetActiveFolder(), strings.ReplaceAll(vnc.GetActiveVNC().CmdStartClient, "%adr", common.GetVNCAddress())))
+			} else {
+				//web ui
+				go vnc.RunVNCClient()
+			}
+
 			sendMessageToLocalCons(TMessLocalStandardAlert, fmt.Sprint(StaticMessageLocalConn))
 		}
 	} else {
@@ -381,11 +391,15 @@ func processLocalLogin(message Message, conn *net.Conn, _ context.Context) {
 	uiClient = conn
 	if message.Messages[2] == "1" {
 		log.Infof("сохраним данные для входа в профиль")
+		myClient.Profile.Email = message.Messages[0]
+		myClient.Profile.Pass = message.Messages[1]
 		common.Options.ProfileLogin = message.Messages[0]
 		common.Options.ProfilePass = message.Messages[1]
 		common.SaveOptions()
 	} else {
 		log.Infof("удалим данные для входа в профиль")
+		myClient.Profile.Email = ""
+		myClient.Profile.Pass = ""
 		common.Options.ProfileLogin = ""
 		common.Options.ProfilePass = ""
 		common.SaveOptions()

@@ -30,8 +30,6 @@ func init() {
 		Timeout: HttpTimeout * time.Second,
 	}
 
-	SetDefaultOptions()
-
 	parentPath, _ = filepath.Abs(filepath.Dir(os.Args[0]))
 	parentPath = fmt.Sprintf("%s%s", parentPath, string(os.PathSeparator))
 	_ = os.Chdir(parentPath)
@@ -334,7 +332,6 @@ func CloseProcess(name string) {
 	}
 
 	for _, p1 := range p {
-
 		if p1.Executable() == name && p1.Pid() != os.Getpid() {
 			p, err := os.FindProcess(p1.Pid())
 			//fmt.Println(p1.Executable(), p, err)
@@ -402,4 +399,23 @@ func DecXOR(str1, str2 string) (string, bool) {
 
 func GetParentFolder() string {
 	return parentPath
+}
+
+func Close() {
+	_, myName := filepath.Split(os.Args[0])
+	CloseProcess(myName)
+	CloseProcess(WhiteLabelFileName)
+}
+
+func Reload() {
+	_, myName := filepath.Split(os.Args[0])
+	CloseProcess(myName)
+	Options.ActiveVncId = -1
+}
+
+func Clean() {
+	_, myName := filepath.Split(os.Args[0])
+	CloseProcess(myName)
+	CloseProcess(WhiteLabelFileName)
+	SetDefaultOptions()
 }

@@ -10,7 +10,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"syscall"
 )
 
@@ -20,6 +19,7 @@ func main() {
 
 	if err := common.LoadOptions(); err != nil {
 		log.Errorf("не получилось открыть настройки: %s", err.Error())
+		common.SetDefaultOptions()
 	}
 
 	flag.StringVar(&common.Options.ServerAddress, "server", common.Options.ServerAddress, "server address")
@@ -37,30 +37,20 @@ func main() {
 	}
 	if *clean {
 		log.Infof("пробуем удалить %s", common.WhiteLabelName)
-		vnc.LoadListVNC()
 		vnc.CloseAllVNC()
 		vnc.Clean()
-		_, myName := filepath.Split(os.Args[0])
-		common.CloseProcess(myName)
-		common.CloseProcess(common.WhiteLabelFileName)
-		common.SetDefaultOptions()
+		common.Clean()
 		return
 	}
 	if *closeFlag {
 		log.Infof("пробуем закрыть все процессы %s", common.WhiteLabelName)
-		vnc.LoadListVNC()
 		vnc.CloseAllVNC()
-		_, myName := filepath.Split(os.Args[0])
-		common.CloseProcess(myName)
-		common.CloseProcess(common.WhiteLabelFileName)
+		common.Close()
 		return
 	}
 	if *reload {
-		vnc.LoadListVNC()
 		vnc.CloseAllVNC()
-		_, myName := filepath.Split(os.Args[0])
-		common.CloseProcess(myName)
-		common.Options.ActiveVncId = -1
+		common.Reload()
 		processor.ReloadMe()
 		return
 	}

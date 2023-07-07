@@ -2,7 +2,7 @@ package common
 
 type Profile struct {
 	Email string
-	Pass  string
+	Pass  string `json:"-"`
 
 	Contacts *Contact
 }

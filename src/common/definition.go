@@ -22,6 +22,7 @@ const (
 	WaitPing            = 10
 	MaxEncPass          = 48
 	LengthPass          = 6
+	LengthToken         = 16
 	HttpTimeout         = 30
 
 	optionsFile  = "options.cfg"
@@ -75,8 +76,8 @@ type options struct {
 	ServerAddress  string
 	MainServerPort string //сервер основной
 	DataServerPort string //сервер для коммутации vnc
-	HttpServerType string //веб сервер основного
-	HttpServerPort string //веб сервер основного
+	HttpServerType string
+	HttpServerPort string //веб сервер основной
 
 	//сервер для общения с UI
 	LocalServerAdr  string
