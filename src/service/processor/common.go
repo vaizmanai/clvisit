@@ -16,7 +16,6 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 )
 
@@ -380,14 +379,10 @@ func ReloadMe() bool {
 	log.Infof("запускаем новый экземпляр коммуникатора")
 	_ = os.Chdir(common.GetParentFolder())
 	_, myName := filepath.Split(os.Args[0])
-	var sI syscall.StartupInfo
-	sI.ShowWindow = 1
-	var pI syscall.ProcessInformation
-	argv, _ := syscall.UTF16PtrFromString(fmt.Sprintf("%s%s", common.GetParentFolder(), myName))
-
-	if err := syscall.CreateProcess(nil, argv, nil, nil, false, 0, nil, nil, &sI, &pI); err != nil {
+	if !startProcess(myName) {
 		common.Flags.Reload = false
-		log.Errorf("не получилось перезапустить коммуникатор: %s", fmt.Sprint(err))
+		vnc.ProcessVNC(common.Options.ActiveVncId)
+		common.ReOpenLogFile()
 		return false
 	}
 

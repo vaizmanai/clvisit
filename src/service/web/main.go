@@ -25,7 +25,7 @@ func Thread() {
 	apiRouter.Use(handleDigest)
 	apiRouter.HandleFunc("/options", handleOptions).Methods(http.MethodGet)
 	apiRouter.HandleFunc("/info", handleInfo).Methods(http.MethodGet)
-	apiRouter.HandleFunc("/ping", handlePing).Methods(http.MethodGet)
+	apiRouter.HandleFunc("/alert", handleAlert).Methods(http.MethodGet)
 	apiRouter.HandleFunc("/quit", handleQuit).Methods(http.MethodGet)
 	apiRouter.HandleFunc("/connect/{pid}/{pass}", handleConnect).Methods(http.MethodGet) //todo pass to body
 
@@ -33,7 +33,7 @@ func Thread() {
 
 	log.Debugf("starting web with token %s", token)
 	if err := http.ListenAndServe(fmt.Sprintf("%s:%s", common.Options.HttpServerClientAdr, common.Options.HttpServerClientPort), myRouter); err != nil {
-		log.Fatalf("http server error: %v", err)
+		panic(err)
 	}
 }
 
@@ -64,8 +64,8 @@ func handleOptions(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(b)
 }
 
-func handlePing(w http.ResponseWriter, _ *http.Request) {
-	_, _ = w.Write([]byte("ok"))
+func handleAlert(w http.ResponseWriter, _ *http.Request) {
+	_, _ = w.Write([]byte(common.GetAlert()))
 }
 
 func handleQuit(w http.ResponseWriter, _ *http.Request) {
@@ -79,18 +79,29 @@ func handleQuit(w http.ResponseWriter, _ *http.Request) {
 }
 
 func handleResource(w http.ResponseWriter, r *http.Request) {
-	//resp, err := httpClient.Get(common.Options.HttpServerType + "://" + common.Options.HttpServerAdr + ":" + common.Options.HttpServerPort + r.RequestURI)
-	//if err == nil {
-	//	body, err := ioutil.ReadAll(resp.Body)
-	//	if err == nil {
-	//		w.Header().Set("Content-Type", resp.Header.Get("Content-Type"))
-	//		_, _ = w.Write(body)
-	//		return
-	//	}
-	//	_ = resp.Body.Close()
-	//}
+	if _, err := os.Stat(fmt.Sprintf("%s%s", common.PathWebFiles, r.URL.Path)); err == nil {
+		http.ServeFile(w, r, fmt.Sprintf("%s%s", common.PathWebFiles, r.URL.Path))
+		return
+	}
 
-	http.Error(w, "not found", http.StatusNotFound)
+	if r.URL.Path == "/" {
+		_, _ = w.Write([]byte(indexFile))
+		return
+	} else if r.URL.Path == "/common.css" {
+		_, _ = w.Write([]byte(commonStyle))
+		return
+	} else if r.URL.Path == "/mini-default.min.css" {
+		_, _ = w.Write([]byte(miniStyle))
+		return
+	} else if r.URL.Path == "/common.js" {
+		_, _ = w.Write([]byte(commonJS))
+		return
+	} else if r.URL.Path == "/favicon.svg" {
+		_, _ = w.Write([]byte(favicon))
+		return
+	}
+
+	http.Error(w, "file not found", http.StatusNotFound)
 }
 
 func handleDigest(h http.Handler) http.Handler {

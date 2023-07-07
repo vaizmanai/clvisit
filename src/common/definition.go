@@ -11,6 +11,7 @@ const (
 	WhiteLabelCommunicatorFileName = "communicator.exe"
 	RevisitVersion                 = "1.20"
 
+	PathWebFiles          = "web"
 	DefaultMainServerName = "server.rvisit.net"
 	DefaultNumberPassword = false
 

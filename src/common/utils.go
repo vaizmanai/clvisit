@@ -22,7 +22,8 @@ import (
 )
 
 var (
-	httpClient *http.Client
+	httpClient   *http.Client
+	alertMessage = make(chan string)
 )
 
 func init() {
@@ -53,6 +54,12 @@ func controlNum(str string) int {
 	return i % 100
 }
 
+func ReOpenLogFile() {
+	logFile, _ = os.OpenFile(logName, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.ModePerm)
+	log.SetOutput(io.MultiWriter(logFile, os.Stdout))
+	log.Infof("truncate log file")
+}
+
 func CloseLogFile() {
 	log.SetOutput(os.Stdout)
 
@@ -61,6 +68,8 @@ func CloseLogFile() {
 			log.Warnf("closing logs: %s", err.Error())
 		}
 	}
+
+	logFile = nil
 }
 
 func RotateLogFiles() {
@@ -76,9 +85,7 @@ func RotateLogFiles() {
 			return
 		}
 
-		logFile, _ := os.OpenFile(logName, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.ModePerm)
-		log.SetOutput(io.MultiWriter(logFile, os.Stdout))
-		log.Infof("truncate log file")
+		ReOpenLogFile()
 	}
 }
 
@@ -418,4 +425,23 @@ func Clean() {
 	CloseProcess(myName)
 	CloseProcess(WhiteLabelFileName)
 	SetDefaultOptions()
+}
+
+func SetAlert(message string) {
+	for {
+		select {
+		case alertMessage <- message:
+		default:
+			return
+		}
+	}
+}
+
+func GetAlert() string {
+	select {
+	case m := <-alertMessage:
+		return m
+	case <-time.After(time.Second):
+		return ""
+	}
 }

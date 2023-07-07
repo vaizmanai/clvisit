@@ -245,6 +245,7 @@ func processStandardAlert(message Message, _ *net.Conn, _ context.Context) {
 		} else if i < len(common.MessStaticText) {
 			log.Infof("текст уведомления: %s", common.MessStaticText[i])
 			sendMessageToSocket(uiClient, TMessLocalStandardAlert, message.Messages[0])
+			common.SetAlert(common.MessStaticText[i])
 		} else {
 			log.Warnf("cannot find status message")
 		}
