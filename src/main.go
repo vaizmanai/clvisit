@@ -7,7 +7,6 @@ import (
 	"clvisit/service/vnc"
 	"clvisit/service/web"
 	"flag"
-	"fmt"
 	log "github.com/sirupsen/logrus"
 	"os"
 	"os/signal"
@@ -40,12 +39,11 @@ func main() {
 		log.Infof("пробуем удалить %s", common.WhiteLabelName)
 		vnc.LoadListVNC()
 		vnc.CloseAllVNC()
+		vnc.Clean()
 		_, myName := filepath.Split(os.Args[0])
 		common.CloseProcess(myName)
 		common.CloseProcess(common.WhiteLabelFileName)
-		_ = os.RemoveAll(fmt.Sprintf("%s%s", common.GetParentFolder(), "vnc"))
-		_ = os.Remove("options.cfg")
-		_ = os.Remove("vnc.list")
+		common.SetDefaultOptions()
 		return
 	}
 	if *closeFlag {

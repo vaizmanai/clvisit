@@ -145,6 +145,7 @@ func SetDefaultOptions() {
 		LogLevel:    log.DebugLevel,
 		ActiveVncId: -1,
 	}
+	_ = os.Remove(optionsFile)
 }
 
 func RandomNumber(l int) string {

@@ -491,3 +491,8 @@ func getVNCFolder(i int) string {
 		string(os.PathSeparator),
 	)
 }
+
+func Clean() {
+	_ = os.RemoveAll(fmt.Sprintf("%s%s", common.GetParentFolder(), folderNamePackages))
+	_ = os.Remove(fileNameList)
+}
