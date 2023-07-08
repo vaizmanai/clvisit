@@ -1,0 +1,14 @@
+[Unit]
+Description=Remote Administrator
+After=network.target auditd.service
+
+[Service]
+WorkingDirectory=/opt/remote-admin
+ExecStart=/opt/remote-admin/admin -standalone=false
+KillMode=process
+Restart=always
+RestartPreventExitStatus=255
+Type=idle
+
+[Install]
+WantedBy=multi-user.target
