@@ -265,7 +265,15 @@ func ExtractZip(arch string, out string) bool {
 }
 
 func CheckForAdmin() bool {
-	if _, err := os.Open("\\\\.\\PHYSICALDRIVE0"); err != nil {
+	if runtime.GOOS == "windows" {
+		if _, err := os.Open("\\\\.\\PHYSICALDRIVE0"); err != nil {
+			return false
+		}
+	} else if runtime.GOOS == "linux" {
+		if _, err := os.Stat("/proc/1/exe"); err != nil {
+			return false
+		}
+	} else {
 		return false
 	}
 	return true

@@ -95,6 +95,7 @@ func MainClient() {
 
 		//отправим свою версию
 		myClient.Version = common.RevisitVersion
+		myClient.Name = common.WhiteLabelName
 		sendMessage(TMessVersion, myClient.Version)
 
 		//отправим свой идентификатор

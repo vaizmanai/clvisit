@@ -3,33 +3,59 @@ package web
 import (
 	"clvisit/common"
 	"clvisit/service/processor"
-	"clvisit/service/vnc"
+	"embed"
 	"encoding/json"
 	"fmt"
 	"github.com/gorilla/mux"
 	log "github.com/sirupsen/logrus"
+	"io/fs"
 	"net/http"
-	"os"
+	"sync"
 	"time"
 )
 
 var (
-	token = common.RandomString(common.LengthToken)
+	//go:embed resources
+	resources embed.FS
+	token     = common.RandomString(common.LengthToken)
+	lastPing  time.Time
+	mutex     sync.Mutex
 )
 
-func Thread() {
+const (
+	staticFolder = "resources"
+)
+
+func Thread(standalone bool) {
+	if standalone {
+		go func() {
+			for {
+				time.Sleep(time.Second * 2)
+				mutex.Lock()
+				if !lastPing.IsZero() {
+					if time.Now().Sub(lastPing).Seconds() > 3 {
+						mutex.Unlock()
+						processor.TerminateMe(true)
+					}
+				}
+				mutex.Unlock()
+			}
+		}()
+	}
+
 	myRouter := mux.NewRouter().StrictSlash(true)
 	myRouter.Use(handleCORS)
 
 	apiRouter := myRouter.PathPrefix("/api/v1").Subrouter()
-	apiRouter.Use(handleDigest)
+	apiRouter.Use(handleDigest(standalone))
 	apiRouter.HandleFunc("/options", handleOptions).Methods(http.MethodGet)
 	apiRouter.HandleFunc("/info", handleInfo).Methods(http.MethodGet)
-	apiRouter.HandleFunc("/alert", handleAlert).Methods(http.MethodGet)
-	apiRouter.HandleFunc("/quit", handleQuit).Methods(http.MethodGet)
+	apiRouter.HandleFunc("/alert", handleAlert(standalone)).Methods(http.MethodGet)
 	apiRouter.HandleFunc("/connect/{pid}/{pass}", handleConnect).Methods(http.MethodGet) //todo pass to body
 
-	myRouter.PathPrefix("/").HandlerFunc(handleResource)
+	subFileSystem, _ := fs.Sub(resources, staticFolder)
+	staticServer := http.FileServer(http.FS(subFileSystem))
+	myRouter.PathPrefix("/").HandlerFunc(staticServer.ServeHTTP)
 
 	log.Debugf("starting web with token %s", token)
 	if err := http.ListenAndServe(fmt.Sprintf("%s:%s", common.Options.HttpServerClientAdr, common.Options.HttpServerClientPort), myRouter); err != nil {
@@ -64,55 +90,28 @@ func handleOptions(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(b)
 }
 
-func handleAlert(w http.ResponseWriter, _ *http.Request) {
-	_, _ = w.Write([]byte(common.GetAlert()))
-}
-
-func handleQuit(w http.ResponseWriter, _ *http.Request) {
-	vnc.CloseAllVNC()
-	common.Close()
-	_, _ = w.Write([]byte("ok"))
-	go func() {
-		time.Sleep(time.Second)
-		os.Exit(0)
-	}()
-}
-
-func handleResource(w http.ResponseWriter, r *http.Request) {
-	if _, err := os.Stat(fmt.Sprintf("%s%s", common.PathWebFiles, r.URL.Path)); err == nil {
-		http.ServeFile(w, r, fmt.Sprintf("%s%s", common.PathWebFiles, r.URL.Path))
-		return
-	}
-
-	if r.URL.Path == "/" {
-		_, _ = w.Write([]byte(indexFile))
-		return
-	} else if r.URL.Path == "/common.css" {
-		_, _ = w.Write([]byte(commonStyle))
-		return
-	} else if r.URL.Path == "/mini-default.min.css" {
-		_, _ = w.Write([]byte(miniStyle))
-		return
-	} else if r.URL.Path == "/common.js" {
-		_, _ = w.Write([]byte(commonJS))
-		return
-	} else if r.URL.Path == "/favicon.svg" {
-		_, _ = w.Write([]byte(favicon))
-		return
-	}
-
-	http.Error(w, "file not found", http.StatusNotFound)
-}
-
-func handleDigest(h http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Query().Get("token") != token {
-			http.Error(w, "not auth", http.StatusUnauthorized)
-			return
+func handleAlert(standalone bool) func(w http.ResponseWriter, _ *http.Request) {
+	return func(w http.ResponseWriter, _ *http.Request) {
+		if standalone {
+			mutex.Lock()
+			lastPing = time.Now()
+			mutex.Unlock()
 		}
+		_, _ = w.Write([]byte(common.GetAlert()))
+	}
+}
 
-		h.ServeHTTP(w, r)
-	})
+func handleDigest(standalone bool) func(h http.Handler) http.Handler {
+	return func(h http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if standalone && r.URL.Query().Get("token") != token {
+				http.Error(w, "not auth", http.StatusUnauthorized)
+				return
+			}
+
+			h.ServeHTTP(w, r)
+		})
+	}
 }
 
 func handleCORS(h http.Handler) http.Handler {

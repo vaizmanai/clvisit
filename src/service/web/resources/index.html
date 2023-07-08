@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="utf-8">
-    <title>$name</title>
+    <title>communicator</title>
     <link rel="shortcut icon" href="favicon.svg" type="image/svg+xml">
     <link rel="icon" href="favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="mini-default.min.css">
@@ -48,6 +48,8 @@
 
                 document.getElementById('gi1-a123').value = item.Pid;
                 document.getElementById('gi1-a321').value = item.Pass;
+                document.getElementById('caption').innerText = `${item.Name} ${item.Version}`;
+                document.title = `${item.Name} ${item.Version}`;
             } else {
                 document.getElementById('gi1-a123').value = "";
                 document.getElementById('gi1-a321').value = "";
@@ -90,7 +92,7 @@
 <div class="holder">
     <div class="content">
         <fieldset>
-            <legend class="doc">$name $version</legend>
+            <legend class="doc" id="caption">$name $version</legend>
 
             <div class="col-sm-12 white">Локальный компьютер</div>
             <div class="container">

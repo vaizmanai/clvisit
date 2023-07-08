@@ -2,7 +2,6 @@ package vnc
 
 import (
 	"clvisit/common"
-	"encoding/json"
 	"fmt"
 	log "github.com/sirupsen/logrus"
 	"io"
@@ -10,7 +9,6 @@ import (
 	"os"
 	"os/exec"
 	"strings"
-	"time"
 )
 
 const (
@@ -138,7 +136,7 @@ func stopVNCServer() bool {
 	log.Infof("останавливаем VNC сервер")
 
 	if !actVNC(GetActiveVNC().CmdStopServer) {
-		log.Errorf("не получилось установить VNC сервер")
+		log.Errorf("не получилось остановить VNC сервер")
 		return true //todo change to false
 	}
 	log.Infof("остановили VNC сервер")
@@ -149,7 +147,7 @@ func uninstallVNCServer() bool {
 	log.Infof("удаляем VNC сервер")
 
 	if !actVNC(GetActiveVNC().CmdRemoveServer) {
-		log.Errorf("не получилось запустить VNC сервер")
+		log.Errorf("не получилось удалить VNC сервер")
 		return false
 	}
 	log.Infof("удалили VNC сервер")
@@ -200,7 +198,7 @@ func stopVNCServerUser() bool {
 	log.Infof("останавливаем VNC сервер")
 
 	if !actVNC(GetActiveVNC().CmdStopServerUser) {
-		log.Errorf("не получилось установить VNC сервер")
+		log.Errorf("не получилось остановить VNC сервер")
 		return true //todo change to false
 	}
 	log.Infof("остановили VNC сервер")
@@ -211,7 +209,7 @@ func uninstallVNCServerUser() bool {
 	log.Infof("удаляем VNC сервер")
 
 	if !actVNC(GetActiveVNC().CmdRemoveServerUser) {
-		log.Errorf("не получилось запустить VNC сервер")
+		log.Errorf("не получилось удалить VNC сервер")
 		return false
 	}
 	log.Infof("удалили VNC сервер")
@@ -250,7 +248,7 @@ func actVNC(cmd string) bool {
 
 	out, err := exec.Command(args[0], args[1:]...).Output()
 	if len(out) > 0 {
-		log.Infof("%s", out)
+		log.Infof("%s", strings.TrimSpace(string(out)))
 	}
 	if err != nil {
 		log.Errorf("%s", err.Error())
@@ -335,80 +333,6 @@ func getVNCFolder(i int) string {
 	)
 }
 
-func SaveListVNC() bool {
-	log.Infof("пробуем сохранить список VNC")
-
-	f, err := os.Create(fmt.Sprintf("%s%s", common.GetParentFolder(), fileNameList))
-	if err != nil {
-		log.Errorf("не получилось сохранить список VNC: %s", err.Error())
-		return false
-	}
-	defer f.Close()
-
-	buff, err := json.MarshalIndent(arrayVNC, "", "\t")
-	if err != nil {
-		log.Errorf("не получилось сохранить список VNC: %s", err.Error())
-		return false
-	}
-
-	if _, err = f.Write(buff); err != nil {
-		log.Errorf("не получилось сохранить список VNC: %s", err.Error())
-		return false
-	}
-
-	return true
-}
-
-func LoadListVNC() bool {
-	log.Infof("пробуем загрузить список VNC")
-	buff, err := os.ReadFile(fmt.Sprintf("%s%s", common.GetParentFolder(), fileNameList))
-	if err != nil {
-		log.Errorf("не получилось открыть список VNC: %s", err.Error())
-		common.Options.ActiveVncId = -1
-		return false
-	}
-
-	if err = json.Unmarshal(buff, &arrayVNC); err != nil {
-		log.Errorf("не получилось открыть список VNC: %s", err.Error())
-		return false
-	}
-
-	if len(arrayVNC) > 0 && common.Options.ActiveVncId < 0 {
-		common.Options.ActiveVncId = 0
-	}
-	log.Infof("список VNC загружен")
-	return true
-}
-
-func GetListVNC() bool {
-	log.Debugf("получим список VNC")
-
-	resp, err := getHttpClient().Get(fmt.Sprintf("%s/api?make=listvnc", common.GetHttpServerAddress()))
-	if err != nil {
-		log.Errorf("не получилось получить с сервера VNC: %s", err.Error())
-		return false
-	}
-
-	buff, err := io.ReadAll(resp.Body)
-	if err != nil {
-		log.Errorf("не получилось прочитать ответ с сервера VNC: %s", err.Error())
-		return false
-	}
-	_ = resp.Body.Close()
-
-	if err = json.Unmarshal(buff, &arrayVNC); err != nil {
-		log.Errorf("не получилось получить с сервера VNC: %s", err.Error())
-		return false
-	}
-
-	if len(arrayVNC) > 0 && common.Options.ActiveVncId < 0 {
-		common.Options.ActiveVncId = 0
-	}
-
-	log.Debugf("получили список VNC с сервера")
-	return true
-}
-
 func ProcessVNC(i int) {
 	if common.Flags.ReInstallVNC {
 		log.Errorf("уже кто-то запустил процесс переустановки VNC")
@@ -420,34 +344,12 @@ func ProcessVNC(i int) {
 	//закроем текущую версию
 	CloseVNC()
 
-	for {
-		//пробуем запустить vnc когда у нас уже есть подключение до сервера, если что можем загрузить новый vnc с сервера
-		if !LoadListVNC() || common.Options.ActiveVncId != i || common.Options.ActiveVncId > len(arrayVNC)-1 {
-			if GetListVNC() {
-				if common.Options.ActiveVncId > len(arrayVNC)-1 {
-					log.Errorf("нет такого VNC в списке")
-					i = 0
-				}
+	//заполняем список vnc
+	handleVNC(i)
 
-				if getAndExtractVNC(i) {
-					log.Infof("обновили VNC")
-					common.SaveOptions()
-					SaveListVNC()
-					break
-				}
-				time.Sleep(time.Second)
-				continue
-			}
-			time.Sleep(time.Second)
-			continue
-		}
-		break
-	}
-
-	startVNC() //надо бы добавить проверку установлен уже или нет сервер
+	//надо бы добавить проверку установлен уже или нет сервер
+	startVNC()
 	common.Flags.ReInstallVNC = false
-
-	//todo update ui
 }
 
 func CloseVNC() {
@@ -486,10 +388,6 @@ func GetActiveVNC() VNC {
 		return VNC{}
 	}
 	return arrayVNC[common.Options.ActiveVncId]
-}
-
-func GetActiveFolder() string {
-	return getVNCFolder(common.Options.ActiveVncId)
 }
 
 func Clean() {

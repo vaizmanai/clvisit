@@ -18,7 +18,7 @@ func main() {
 	signal.Notify(interrupt, os.Interrupt, syscall.SIGTERM)
 
 	if err := common.LoadOptions(); err != nil {
-		log.Errorf("не получилось открыть настройки: %s", err.Error())
+		log.Warnf("не получилось открыть настройки: %s", err.Error())
 		common.SetDefaultOptions()
 	}
 
@@ -28,10 +28,16 @@ func main() {
 	clean := flag.Bool("clean-all", false, "clean all options and settings")
 	closeFlag := flag.Bool("closeFlag-all", false, "closeFlag all processes")
 	reload := flag.Bool("reload", false, "reload communicator and UI")
+	standalone := flag.Bool("standalone", false, "show web ui window") //при закрытии окна - должен закрыться коммуникатор
+	window := flag.Bool("window", false, "start only web ui window")   //используем для подключения к запущенному сервису
 	flag.Parse()
 
 	log.Infof("запустился коммуникатор %s версии %s", common.WhiteLabelName, common.RevisitVersion)
 
+	if *window {
+		openWindow() //web ui
+		return
+	}
 	if *pass != "" {
 		processor.SetPass(*pass)
 	}
@@ -59,11 +65,15 @@ func main() {
 		vnc.ProcessVNC(common.Options.ActiveVncId) //здесь запускаем VNC сервер
 		processor.SendInfo()
 	}()
-	go processor.DataThread() //здесь ждем соединения от локального vnc клиента
-	go web.Thread()           //там у нас располагаться должно много всего, но в будущем(заявки, доп настройки)
-	go processor.Thread()     //здесь общаемся с UI мордой
-	go processor.MainClient() //здесь общаемся с главным сервером
+	go processor.DataThread()  //здесь ждем соединения от локального vnc клиента
+	go web.Thread(*standalone) //там у нас располагаться должно много всего, но в будущем(заявки, доп настройки)
+	go processor.Thread()      //здесь общаемся с UI мордой
+	go processor.MainClient()  //здесь общаемся с главным сервером
 	go services.HelperService()
+	if *standalone {
+		log.Infof("запуск в режиме standalone")
+		go openWindow() //web ui
+	}
 
 	killSignal := <-interrupt
 	switch killSignal {

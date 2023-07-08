@@ -173,6 +173,7 @@ type Client struct {
 	Pid     string
 	Pass    string //только для веб клиента
 	Version string
+	Name    string
 	Salt    string `json:"-"`
 	Token   string `json:"-"`
 	Profile common.Profile
