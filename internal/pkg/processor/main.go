@@ -3,8 +3,8 @@ package processor
 import (
 	"bufio"
 	"bytes"
-	"clvisit/common"
-	"clvisit/service/proxy"
+	"clvisit/internal/pkg/common"
+	"clvisit/internal/pkg/proxy"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -95,6 +95,7 @@ func MainClient() {
 
 		//отправим свою версию
 		myClient.Version = common.RevisitVersion
+		myClient.Name = common.WhiteLabelName
 		sendMessage(TMessVersion, myClient.Version)
 
 		//отправим свой идентификатор

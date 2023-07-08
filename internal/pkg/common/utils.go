@@ -22,15 +22,14 @@ import (
 )
 
 var (
-	httpClient *http.Client
+	httpClient   *http.Client
+	alertMessage = make(chan string)
 )
 
 func init() {
 	httpClient = &http.Client{
 		Timeout: HttpTimeout * time.Second,
 	}
-
-	SetDefaultOptions()
 
 	parentPath, _ = filepath.Abs(filepath.Dir(os.Args[0]))
 	parentPath = fmt.Sprintf("%s%s", parentPath, string(os.PathSeparator))
@@ -55,6 +54,12 @@ func controlNum(str string) int {
 	return i % 100
 }
 
+func ReOpenLogFile() {
+	logFile, _ = os.OpenFile(logName, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.ModePerm)
+	log.SetOutput(io.MultiWriter(logFile, os.Stdout))
+	log.Infof("truncate log file")
+}
+
 func CloseLogFile() {
 	log.SetOutput(os.Stdout)
 
@@ -63,6 +68,8 @@ func CloseLogFile() {
 			log.Warnf("closing logs: %s", err.Error())
 		}
 	}
+
+	logFile = nil
 }
 
 func RotateLogFiles() {
@@ -78,9 +85,7 @@ func RotateLogFiles() {
 			return
 		}
 
-		logFile, _ := os.OpenFile(logName, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.ModePerm)
-		log.SetOutput(io.MultiWriter(logFile, os.Stdout))
-		log.Infof("truncate log file")
+		ReOpenLogFile()
 	}
 }
 
@@ -260,7 +265,15 @@ func ExtractZip(arch string, out string) bool {
 }
 
 func CheckForAdmin() bool {
-	if _, err := os.Open("\\\\.\\PHYSICALDRIVE0"); err != nil {
+	if runtime.GOOS == "windows" {
+		if _, err := os.Open("\\\\.\\PHYSICALDRIVE0"); err != nil {
+			return false
+		}
+	} else if runtime.GOOS == "linux" {
+		if _, err := os.Stat("/proc/1/exe"); err != nil {
+			return false
+		}
+	} else {
 		return false
 	}
 	return true
@@ -334,7 +347,6 @@ func CloseProcess(name string) {
 	}
 
 	for _, p1 := range p {
-
 		if p1.Executable() == name && p1.Pid() != os.Getpid() {
 			p, err := os.FindProcess(p1.Pid())
 			//fmt.Println(p1.Executable(), p, err)
@@ -402,4 +414,42 @@ func DecXOR(str1, str2 string) (string, bool) {
 
 func GetParentFolder() string {
 	return parentPath
+}
+
+func Close() {
+	_, myName := filepath.Split(os.Args[0])
+	CloseProcess(myName)
+	CloseProcess(WhiteLabelFileName)
+}
+
+func Reload() {
+	_, myName := filepath.Split(os.Args[0])
+	CloseProcess(myName)
+	Options.ActiveVncId = -1
+}
+
+func Clean() {
+	_, myName := filepath.Split(os.Args[0])
+	CloseProcess(myName)
+	CloseProcess(WhiteLabelFileName)
+	SetDefaultOptions()
+}
+
+func SetAlert(message string) {
+	for {
+		select {
+		case alertMessage <- message:
+		default:
+			return
+		}
+	}
+}
+
+func GetAlert() string {
+	select {
+	case m := <-alertMessage:
+		return m
+	case <-time.After(time.Second):
+		return ""
+	}
 }

@@ -1,7 +1,6 @@
-package services
+package common
 
 import (
-	"clvisit/common"
 	"runtime/debug"
 	"time"
 )
@@ -11,6 +10,6 @@ func HelperService() {
 		time.Sleep(time.Minute)
 
 		debug.FreeOSMemory()
-		common.RotateLogFiles()
+		RotateLogFiles()
 	}
 }

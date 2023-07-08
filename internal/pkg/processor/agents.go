@@ -1,7 +1,7 @@
 package processor
 
 import (
-	"clvisit/common"
+	"clvisit/internal/pkg/common"
 	log "github.com/sirupsen/logrus"
 	"github.com/tatsushid/go-fastping"
 	"net"

@@ -1,16 +1,14 @@
 package main
 
 import (
-	"clvisit/common"
-	services "clvisit/service"
-	"clvisit/service/processor"
-	"clvisit/service/vnc"
-	"clvisit/service/web"
+	"clvisit/internal/pkg/common"
+	"clvisit/internal/pkg/processor"
+	"clvisit/internal/pkg/vnc"
+	"clvisit/internal/pkg/web"
 	"flag"
 	log "github.com/sirupsen/logrus"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"syscall"
 )
 
@@ -19,7 +17,8 @@ func main() {
 	signal.Notify(interrupt, os.Interrupt, syscall.SIGTERM)
 
 	if err := common.LoadOptions(); err != nil {
-		log.Errorf("не получилось открыть настройки: %s", err.Error())
+		log.Warnf("не получилось открыть настройки: %s", err.Error())
+		common.SetDefaultOptions()
 	}
 
 	flag.StringVar(&common.Options.ServerAddress, "server", common.Options.ServerAddress, "server address")
@@ -32,35 +31,29 @@ func main() {
 
 	log.Infof("запустился коммуникатор %s версии %s", common.WhiteLabelName, common.RevisitVersion)
 
+	if *window {
+		openWindow() //web ui
+		return
+	}
 	if *pass != "" {
 		processor.SetPass(*pass)
 	}
 	if *clean {
 		log.Infof("пробуем удалить %s", common.WhiteLabelName)
-		vnc.LoadListVNC()
 		vnc.CloseAllVNC()
 		vnc.Clean()
-		_, myName := filepath.Split(os.Args[0])
-		common.CloseProcess(myName)
-		common.CloseProcess(common.WhiteLabelFileName)
-		common.SetDefaultOptions()
+		common.Clean()
 		return
 	}
 	if *closeFlag {
 		log.Infof("пробуем закрыть все процессы %s", common.WhiteLabelName)
-		vnc.LoadListVNC()
 		vnc.CloseAllVNC()
-		_, myName := filepath.Split(os.Args[0])
-		common.CloseProcess(myName)
-		common.CloseProcess(common.WhiteLabelFileName)
+		common.Close()
 		return
 	}
 	if *reload {
-		vnc.LoadListVNC()
 		vnc.CloseAllVNC()
-		_, myName := filepath.Split(os.Args[0])
-		common.CloseProcess(myName)
-		common.Options.ActiveVncId = -1
+		common.Reload()
 		processor.ReloadMe()
 		return
 	}
@@ -69,11 +62,15 @@ func main() {
 		vnc.ProcessVNC(common.Options.ActiveVncId) //здесь запускаем VNC сервер
 		processor.SendInfo()
 	}()
-	go processor.DataThread() //здесь ждем соединения от локального vnc клиента
-	go web.Thread()           //там у нас располагаться должно много всего, но в будущем(заявки, доп настройки)
-	go processor.Thread()     //здесь общаемся с UI мордой
-	go processor.MainClient() //здесь общаемся с главным сервером
-	go services.HelperService()
+	go processor.DataThread()  //здесь ждем соединения от локального vnc клиента
+	go web.Thread(*standalone) //там у нас располагаться должно много всего, но в будущем(заявки, доп настройки)
+	go processor.Thread()      //здесь общаемся с UI мордой
+	go processor.MainClient()  //здесь общаемся с главным сервером
+	go common.HelperService()
+	if *standalone {
+		log.Infof("запуск в режиме standalone")
+		go openWindow() //web ui
+	}
 
 	killSignal := <-interrupt
 	switch killSignal {

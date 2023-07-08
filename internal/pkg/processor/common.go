@@ -1,8 +1,8 @@
 package processor
 
 import (
-	"clvisit/common"
-	"clvisit/service/vnc"
+	"clvisit/internal/pkg/common"
+	"clvisit/internal/pkg/vnc"
 	"container/list"
 	"context"
 	"encoding/json"
@@ -16,7 +16,6 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 )
 
@@ -170,19 +169,19 @@ var (
 )
 
 type Client struct {
-	Serial  string
+	Serial  string `json:"-"`
 	Pid     string
+	Pass    string //только для веб клиента
 	Version string
-	Salt    string //соль для паролей
-	Token   string //авторизация в веб
+	Name    string
+	Salt    string `json:"-"`
+	Token   string `json:"-"`
 	Profile common.Profile
 
-	Conn      *net.Conn
-	LocalServ *net.Listener
-	DataServ  *net.Listener
-	WebServ   *net.Listener
-
-	Code string //for connection
+	Conn      *net.Conn     `json:"-"`
+	LocalServ *net.Listener `json:"-"`
+	DataServ  *net.Listener `json:"-"`
+	WebServ   *net.Listener `json:"-"`
 }
 
 type Connections struct {
@@ -202,6 +201,16 @@ type ProcessingMessage struct {
 type Message struct {
 	TMessage int
 	Messages []string
+}
+
+func GetClient() Client {
+	myClient.Pass = GetPass()
+	return myClient
+}
+
+func Connect(pid, pass string) bool {
+	processLocalConnect(Message{Messages: []string{pid, pass}}, nil, context.Background())
+	return true
 }
 
 func GetPass() string {
@@ -371,15 +380,10 @@ func ReloadMe() bool {
 	log.Infof("запускаем новый экземпляр коммуникатора")
 	_ = os.Chdir(common.GetParentFolder())
 	_, myName := filepath.Split(os.Args[0])
-	var sI syscall.StartupInfo
-	sI.ShowWindow = 1
-	var pI syscall.ProcessInformation
-	argv, _ := syscall.UTF16PtrFromString(fmt.Sprintf("%s%s", common.GetParentFolder(), myName))
-	err := syscall.CreateProcess(nil, argv, nil, nil, false, 0, nil, nil, &sI, &pI)
-
-	if err != nil {
+	if !startProcess(myName) {
 		common.Flags.Reload = false
-		log.Errorf("не получилось перезапустить коммуникатор: %s", fmt.Sprint(err))
+		vnc.ProcessVNC(common.Options.ActiveVncId)
+		common.ReOpenLogFile()
 		return false
 	}
 

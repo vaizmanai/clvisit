@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <title>communicator</title>
+    <link rel="shortcut icon" href="favicon.svg" type="image/svg+xml">
+    <link rel="icon" href="favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="mini-default.min.css">
+    <link rel="stylesheet" href="common.css">
+    <script src="common.js"></script>
+
+    <script>
+        let token = getUrlParameter('token')
+
+        function alert() {
+            let xhr = new XMLHttpRequest();
+            xhr.open('GET', `/api/v1/alert?token=${token}`, true);
+            xhr.send();
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState !== 4) return;
+                if (xhr.status === 200) {
+                    if (xhr.responseText.length === 0) {
+                        return;
+                    }
+                    toast(xhr.responseText)
+                }
+            }
+        }
+
+        function exit() {
+            let xhr = new XMLHttpRequest();
+            xhr.open('GET', `/api/v1/quit?token=${token}`, false);
+            xhr.send();
+        }
+
+        function get() {
+            let xhr = new XMLHttpRequest();
+            xhr.open('GET', `/api/v1/info?token=${token}`, false);
+            xhr.send();
+            if (xhr.status === 200) {
+                if (xhr.responseText.length === 0) {
+                    return;
+                }
+                let item = JSON.parse(xhr.responseText);
+                if (!item) {
+                    return;
+                }
+
+                document.getElementById('gi1-a123').value = item.Pid;
+                document.getElementById('gi1-a321').value = item.Pass;
+                document.getElementById('caption').innerText = `${item.Name} ${item.Version}`;
+                document.title = `${item.Name} ${item.Version}`;
+            } else {
+                document.getElementById('gi1-a123').value = "";
+                document.getElementById('gi1-a321').value = "";
+            }
+        }
+
+        function send(act) {
+            let xhr = new XMLHttpRequest();
+            if (act === 'connect') {
+                if (document.getElementById('gi1-a456').value === '' || document.getElementById('gi1-a654').value === '') {
+                    return;
+                }
+
+                xhr.open('GET', `/api/v1/connect/${encodeURIComponent(document.getElementById('gi1-a456').value)}/${encodeURIComponent(document.getElementById('gi1-a654').value)}?token=${token}`, false);
+            }
+            xhr.send();
+            if (xhr.status !== 200) {
+                toast(xhr.responseText)
+            } else {
+                get()
+            }
+        }
+
+        function toast(message) {
+            let w = document.getElementById("toast");
+            w.innerText = message;
+            w.style.display = "block";
+            setTimeout(function () {
+                w.style.display = "none";
+            }, 2000);
+        }
+
+        setInterval(function () {
+            alert();
+        }, 1000)
+    </script>
+</head>
+
+<body onload="get()">
+<div class="holder">
+    <div class="content">
+        <fieldset>
+            <legend class="doc" id="caption">$name $version</legend>
+
+            <div class="col-sm-12 white">Локальный компьютер</div>
+            <div class="container">
+                <div class="row">
+                    <div class="col-sm-6 r">
+                        <label for="gi1-a123" class="doc">Идентификатор</label>
+                    </div>
+                    <div class="col-sm-6 l">
+                        <input type="text" id="gi1-a123" placeholder="идентификатор" class="doc" disabled>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-sm-6 r">
+                        <label for="gi1-a321" class="doc">Пароль</label>
+                    </div>
+                    <div class="col-sm-6 l">
+                        <input type="text" id="gi1-a321" placeholder="пароль" class="doc" disabled>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-sm-12 white">Удаленный компьютер</div>
+            <div class="container">
+                <div class="row">
+                    <div class="col-sm-6 r">
+                        <label for="gi1-a456" class="doc">Идентификатор</label>
+                    </div>
+                    <div class="col-sm-6 l">
+                        <input type="text" value="" id="gi1-a456" placeholder="идентификатор" class="doc" required>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-sm-6 r">
+                        <label for="gi1-a654" class="doc">Пароль</label>
+                    </div>
+                    <div class="col-sm-6 l">
+                        <input type="text" value="" id="gi1-a654" placeholder="пароль" class="doc" required>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-sm-12">
+                        <input type="button" id="btn-try" class="tertiary" value="Подключиться"
+                               onclick="send('connect')"/>
+                    </div>
+                </div>
+            </div>
+        </fieldset>
+        <span class="toast" id="toast" style="display: none"></span>
+    </div>
+</div>
+
+</body>
+</html>
