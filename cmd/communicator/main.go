@@ -1,11 +1,10 @@
 package main
 
 import (
-	"clvisit/common"
-	services "clvisit/service"
-	"clvisit/service/processor"
-	"clvisit/service/vnc"
-	"clvisit/service/web"
+	"clvisit/internal/pkg/common"
+	"clvisit/internal/pkg/processor"
+	"clvisit/internal/pkg/vnc"
+	"clvisit/internal/pkg/web"
 	"flag"
 	log "github.com/sirupsen/logrus"
 	"os"
@@ -28,8 +27,6 @@ func main() {
 	clean := flag.Bool("clean-all", false, "clean all options and settings")
 	closeFlag := flag.Bool("closeFlag-all", false, "closeFlag all processes")
 	reload := flag.Bool("reload", false, "reload communicator and UI")
-	standalone := flag.Bool("standalone", false, "show web ui window") //при закрытии окна - должен закрыться коммуникатор
-	window := flag.Bool("window", false, "start only web ui window")   //используем для подключения к запущенному сервису
 	flag.Parse()
 
 	log.Infof("запустился коммуникатор %s версии %s", common.WhiteLabelName, common.RevisitVersion)
@@ -69,7 +66,7 @@ func main() {
 	go web.Thread(*standalone) //там у нас располагаться должно много всего, но в будущем(заявки, доп настройки)
 	go processor.Thread()      //здесь общаемся с UI мордой
 	go processor.MainClient()  //здесь общаемся с главным сервером
-	go services.HelperService()
+	go common.HelperService()
 	if *standalone {
 		log.Infof("запуск в режиме standalone")
 		go openWindow() //web ui

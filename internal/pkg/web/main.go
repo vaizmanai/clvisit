@@ -1,8 +1,8 @@
 package web
 
 import (
-	"clvisit/common"
-	"clvisit/service/processor"
+	"clvisit/internal/pkg/common"
+	"clvisit/internal/pkg/processor"
 	"embed"
 	"encoding/json"
 	"fmt"

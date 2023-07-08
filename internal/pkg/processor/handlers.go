@@ -1,8 +1,8 @@
 package processor
 
 import (
-	"clvisit/common"
-	"clvisit/service/vnc"
+	"clvisit/internal/pkg/common"
+	"clvisit/internal/pkg/vnc"
 	"context"
 	"encoding/json"
 	"fmt"

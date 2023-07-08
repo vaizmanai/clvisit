@@ -3,8 +3,8 @@ package processor
 import (
 	"bufio"
 	"bytes"
-	"clvisit/common"
-	"clvisit/service/proxy"
+	"clvisit/internal/pkg/common"
+	"clvisit/internal/pkg/proxy"
 	"context"
 	"encoding/json"
 	"fmt"

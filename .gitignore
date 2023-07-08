@@ -4,3 +4,4 @@ build/log.txt
 build/options.cfg
 build/vnc.list
 build/vnc
+build/communicator*
