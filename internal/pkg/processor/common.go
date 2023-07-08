@@ -1,13 +1,13 @@
 package processor
 
 import (
-	"clvisit/internal/pkg/common"
-	"clvisit/internal/pkg/vnc"
 	"container/list"
 	"context"
 	"encoding/json"
 	"fmt"
 	log "github.com/sirupsen/logrus"
+	"github.com/vaizmanai/clvisit/internal/pkg/common"
+	"github.com/vaizmanai/clvisit/internal/pkg/vnc"
 	"io"
 	"net"
 	"net/http"
@@ -251,8 +251,8 @@ func SetPass(pass string) {
 	common.Options.Pass = common.EncXOR(pass, myClient.Pid)
 }
 
-func TerminateMe(term bool) {
-	if localConnections.Len() > 1 && !term {
+func TerminateMe(force bool) {
+	if localConnections.Len() > 1 && !force {
 		log.Infof("отказываемся выходить так как несколько ui панелей")
 		return
 	}

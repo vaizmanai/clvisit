@@ -1,8 +1,8 @@
 package vnc
 
 import (
-	"clvisit/internal/pkg/common"
 	log "github.com/sirupsen/logrus"
+	"github.com/vaizmanai/clvisit/internal/pkg/common"
 	"os/exec"
 )
 

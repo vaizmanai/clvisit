@@ -1,9 +1,9 @@
 package processor
 
 import (
-	"clvisit/internal/pkg/common"
 	"fmt"
 	log "github.com/sirupsen/logrus"
+	"github.com/vaizmanai/clvisit/internal/pkg/common"
 	"syscall"
 )
 

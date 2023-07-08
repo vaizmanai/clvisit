@@ -1,9 +1,9 @@
 package vnc
 
 import (
-	"clvisit/internal/pkg/common"
 	"fmt"
 	log "github.com/sirupsen/logrus"
+	"github.com/vaizmanai/clvisit/internal/pkg/common"
 	"io"
 	"net/http"
 	"os"
@@ -75,7 +75,7 @@ func startVNC() {
 
 	log.Infof("готовим VNC сервер для запуска")
 	if !common.CheckForAdmin() {
-		log.Infof("у нас нет прав Администратора, запускаем обычную версию VNC сервера")
+		log.Infof("права Администратора не доступны, запускаем обычную версию VNC сервера")
 
 		if configVNCServerUser() {
 			if installVNCServerUser() {
@@ -359,13 +359,13 @@ func CloseVNC() {
 	}
 
 	if !common.CheckForAdmin() {
-		log.Infof("у нас нет прав Администратора")
+		log.Infof("права Администратора не доступны")
 
 		if stopVNCServerUser() {
 			uninstallVNCServerUser()
 		}
 	} else {
-		log.Infof("права Администратора не доступны")
+		log.Infof("права Администратора доступны")
 
 		if stopVNCServer() {
 			uninstallVNCServer()

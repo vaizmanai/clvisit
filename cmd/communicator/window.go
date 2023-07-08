@@ -3,10 +3,10 @@
 package main
 
 import (
-	"clvisit/internal/pkg/common"
-	"clvisit/internal/pkg/web"
 	"flag"
 	"fmt"
+	"github.com/vaizmanai/clvisit/internal/pkg/common"
+	"github.com/vaizmanai/clvisit/internal/pkg/web"
 	"github.com/webview/webview"
 )
 

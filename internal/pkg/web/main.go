@@ -1,13 +1,13 @@
 package web
 
 import (
-	"clvisit/internal/pkg/common"
-	"clvisit/internal/pkg/processor"
 	"embed"
 	"encoding/json"
 	"fmt"
 	"github.com/gorilla/mux"
 	log "github.com/sirupsen/logrus"
+	"github.com/vaizmanai/clvisit/internal/pkg/common"
+	"github.com/vaizmanai/clvisit/internal/pkg/processor"
 	"io/fs"
 	"net/http"
 	"sync"

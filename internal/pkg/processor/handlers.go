@@ -1,12 +1,12 @@
 package processor
 
 import (
-	"clvisit/internal/pkg/common"
-	"clvisit/internal/pkg/vnc"
 	"context"
 	"encoding/json"
 	"fmt"
 	log "github.com/sirupsen/logrus"
+	"github.com/vaizmanai/clvisit/internal/pkg/common"
+	"github.com/vaizmanai/clvisit/internal/pkg/vnc"
 	"net"
 	"net/http"
 	"net/url"

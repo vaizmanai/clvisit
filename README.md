@@ -30,7 +30,7 @@ make build_communicator
 Building linux standalone version:
 
 ```
-go build -o build/standalone -tags=webui clvisit/cmd/communicator
+go build -o build/standalone -tags=webui github.com/vaizmanai/clvisit/cmd/communicator
 ```
 
 ***

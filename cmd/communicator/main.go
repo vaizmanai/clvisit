@@ -1,12 +1,12 @@
 package main
 
 import (
-	"clvisit/internal/pkg/common"
-	"clvisit/internal/pkg/processor"
-	"clvisit/internal/pkg/vnc"
-	"clvisit/internal/pkg/web"
 	"flag"
 	log "github.com/sirupsen/logrus"
+	"github.com/vaizmanai/clvisit/internal/pkg/common"
+	"github.com/vaizmanai/clvisit/internal/pkg/processor"
+	"github.com/vaizmanai/clvisit/internal/pkg/vnc"
+	"github.com/vaizmanai/clvisit/internal/pkg/web"
 	"os"
 	"os/signal"
 	"syscall"

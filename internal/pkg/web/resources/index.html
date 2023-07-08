@@ -33,7 +33,7 @@
             xhr.send();
         }
 
-        function get() {
+        function getInfo() {
             let xhr = new XMLHttpRequest();
             xhr.open('GET', `/api/v1/info?token=${token}`, false);
             xhr.send();
@@ -69,7 +69,7 @@
             if (xhr.status !== 200) {
                 toast(xhr.responseText)
             } else {
-                get()
+                getInfo()
             }
         }
 
@@ -84,11 +84,12 @@
 
         setInterval(function () {
             alert();
+            getInfo();
         }, 1000)
     </script>
 </head>
 
-<body onload="get()">
+<body onload="getInfo()">
 <div class="holder">
     <div class="content">
         <fieldset>

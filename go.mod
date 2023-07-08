@@ -1,6 +1,4 @@
-module clvisit
-
-//module github.com/vaizmanai/clvisit
+module github.com/vaizmanai/clvisit
 
 go 1.19
 
