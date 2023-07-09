@@ -6,10 +6,10 @@ import (
 )
 
 const (
-	WhiteLabelName                 = "reVisit"
+	WhiteLabelName                 = "ОСГОС Админ"
 	WhiteLabelFileName             = "admin.exe"
 	WhiteLabelCommunicatorFileName = "communicator.exe"
-	RevisitVersion                 = "1.20"
+	RevisitVersion                 = "1.01"
 
 	DefaultMainServerName = "server.rvisit.net"
 	DefaultNumberPassword = false

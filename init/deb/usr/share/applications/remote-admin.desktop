@@ -1,9 +1,9 @@
 
 [Desktop Entry]
-Name=Remote Admin
+Name=ОСГОС Админ
 Version=1.0
 Exec=/opt/remote-admin/admin -window
-Icon=/usr/share/pixmaps/remote-admin.ico
+Icon=/usr/share/pixmaps/remote-admin.png
 Terminal=false
 StartupNotify=false
 Type=Application
