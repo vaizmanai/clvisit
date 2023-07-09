@@ -12,25 +12,13 @@ It contains two versions:
 Building windows standalone and communicator versions:
 
 ```
-make
+make windows
 ```
 
-Building only windows standalone version:
+Building linux standalone, communicator versions and pack to deb:
 
 ```
-make build_standalone
-```
-
-Building only windows communicator version:
-
-```
-make build_communicator
-```
-
-Building linux standalone version:
-
-```
-go build -o build/standalone -tags=webui github.com/vaizmanai/clvisit/cmd/communicator
+make linux
 ```
 
 ***

@@ -1,0 +1,9 @@
+
+[Desktop Entry]
+Name=Remote Admin
+Version=1.0
+Exec=/opt/remote-admin/admin -window
+Icon=/usr/share/pixmaps/remote-admin.ico
+Terminal=false
+StartupNotify=false
+Type=Application

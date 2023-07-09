@@ -1,0 +1,7 @@
+Package: remote-admin
+Version: 1.0
+Section: misc
+Architecture: amd64
+Depends: x11vnc, xtightvncviewer
+Maintainer: vaizmanai@gmail.com
+Description: Communicator Remote Admin by VNC
