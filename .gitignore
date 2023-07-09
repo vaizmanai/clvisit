@@ -2,6 +2,9 @@
 .idea
 build/log.txt
 build/options.cfg
-build/vnc.list
-build/vnc
+build/vnc*
 build/communicator*
+build/standalone*
+build/*.exe
+build/*.deb
+init/deb/opt/remote-admin/admin

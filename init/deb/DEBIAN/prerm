@@ -1,0 +1,6 @@
+#!/bin/bash
+
+systemctl stop remote-admin
+systemctl disable remote-admin
+
+rm -f /opt/remote-admin/*.*

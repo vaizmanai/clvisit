@@ -8,7 +8,7 @@ ExecStart=/opt/remote-admin/admin -standalone=false
 KillMode=process
 Restart=always
 RestartPreventExitStatus=255
-Type=idle
+Type=simple
 
 [Install]
 WantedBy=multi-user.target
