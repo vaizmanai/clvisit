@@ -2,7 +2,7 @@
 [Desktop Entry]
 Name=ОСГОС Админ
 Version=1.0
-Exec=/opt/remote-admin/admin -window
+Exec=sh -c "xhost +; /opt/remote-admin/admin -window; xhost -;"
 Icon=/usr/share/pixmaps/remote-admin.png
 Terminal=false
 StartupNotify=false
