@@ -60,7 +60,7 @@ func UpdateAgentMetric(address string) int {
 
 func printAgentsMetric() {
 	for i := 0; i < len(agents); i++ {
-		log.Debugf("метрика для %s - %s", agents[i].Address, agents[i].Metric)
+		log.Debugf("метрика для %s - %d", agents[i].Address, agents[i].Metric)
 	}
 }
 

@@ -15,6 +15,11 @@ Building windows standalone and communicator versions:
 make windows
 ```
 
+Before start, you have to install fakeroot and g++
+```
+sudo apt install -y fakeroot g++ libgtk-3-dev libwebkit2gtk-4.0-dev
+```
+
 Building linux standalone, communicator versions and pack to deb:
 
 ```
