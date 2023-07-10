@@ -4,9 +4,11 @@ After=network.target auditd.service
 
 [Service]
 WorkingDirectory=/opt/remote-admin
+Environment="DISPLAY=:0"
 ExecStart=/opt/remote-admin/admin -standalone=false
 KillMode=process
 Restart=always
+RestartSec=5
 RestartPreventExitStatus=255
 Type=simple
 
