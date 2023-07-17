@@ -45,7 +45,7 @@ var (
 		Reload:          false,
 		Terminated:      false,
 		Password:        false,
-		ChRefreshAgents: make(chan bool),
+		ChRefreshAgents: nil,
 	}
 
 	//текстовая расшифровка статических сообщений
