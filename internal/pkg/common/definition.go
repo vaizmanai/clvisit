@@ -9,9 +9,9 @@ const (
 	WhiteLabelName                 = "ОСГОС Админ"
 	WhiteLabelFileName             = "admin.exe"
 	WhiteLabelCommunicatorFileName = "communicator.exe"
-	RevisitVersion                 = "1.01"
+	RevisitVersion                 = "1.02"
 
-	DefaultMainServerName = "server.rvisit.net"
+	DefaultMainServerName = "195.88.112.48"
 	DefaultNumberPassword = false
 
 	WaitCountRestartSrv = 10
