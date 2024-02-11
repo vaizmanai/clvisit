@@ -9,9 +9,9 @@ const (
 	WhiteLabelName                 = "ОСГОС Админ"
 	WhiteLabelFileName             = "admin.exe"
 	WhiteLabelCommunicatorFileName = "communicator.exe"
-	RevisitVersion                 = "1.02"
+	RevisitVersion                 = "1.03"
 
-	DefaultMainServerName = "195.88.112.48"
+	DefaultMainServerName = "admin.gossys.ru"
 	DefaultNumberPassword = false
 
 	WaitCountRestartSrv = 10
